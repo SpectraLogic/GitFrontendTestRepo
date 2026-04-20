@@ -13,6 +13,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -328,34 +332,21 @@ public final class DatabaseSupportFactory
         {
             if ( null == s_postgresExists )
             {
-                try
-                {
-                    final String[] doesPsqlExistCmd = { PSQL, "--help"};
-                    final Process p = execAndWaitFor( doesPsqlExistCmd, 5000 );
-                    LOG.info( PSQL + " command line found.: exit " + p.exitValue() );
-                }
-                catch ( final Exception ex )
-                {
-                    Validations.verifyNotNull( "Shut up CodePro", ex );
-                    LOG.info( PSQL + " command line not found in path" );
-                    s_postgresExists = Boolean.FALSE;
-                    return null;
-                }
-                
                 for ( final String user : CollectionFactory.toList( "postgres", "Administrator" ) )
                 {
                     if ( isValidConnection( user ) )
                     {
                         s_postgresExists = Boolean.TRUE;
                         s_postgresUser = user;
-                        
-                        psql( "DO $$"
-                                + "BEGIN" 
+
+                        executeAdminSql( DEFAULT_DB,
+                                "DO $$"
+                                + "BEGIN"
                                 + " IF NOT EXISTS("
                                 + "   SELECT * FROM pg_catalog.pg_user WHERE usename = '" + DB_USER + "'"
                                 + " )"
                                 + " THEN"
-                                + "   CREATE USER " + DB_USER + " WITH SUPERUSER PASSWORD '" 
+                                + "   CREATE USER " + DB_USER + " WITH SUPERUSER PASSWORD '"
                                 + DB_PASSWORD + "';"
                                 + " END IF;"
                                 + "END"
@@ -426,12 +417,8 @@ public final class DatabaseSupportFactory
             
             if ( !isValidConnection( s_postgresUser, dbName ) )
             {
-                final String[] dropDbCmd = { PSQL, "-U", s_postgresUser,
-                                            "-d", "template1", "-c", "drop database " +
-                                            dbName + " cascade;"};
-                execAndWaitFor( dropDbCmd, 10000 );
-                
-                LOG.info( "Drop database: " + Arrays.toString(dropDbCmd) );
+                executeAdminSql( "template1", "DROP DATABASE IF EXISTS " + dbName );
+                LOG.info( "Dropped database: " + dbName );
 
                 final String dbCreateArgs;
                 if ( System.getProperty("os.name").startsWith("Windows") )
@@ -441,28 +428,17 @@ public final class DatabaseSupportFactory
                 }
                 else // FreeBSD or Mac or Linux
                 {
-                    dbCreateArgs = 
+                    dbCreateArgs =
                     "template=template0 encoding='UTF8' lc_collate='C' lc_ctype='en_US.UTF-8'";
                 }
-                final String[] createDbCmd = { PSQL, "-U", s_postgresUser,
-                                              "-d", "template1", "-c", "create database " 
-                                              + dbName + " " + dbCreateArgs + ";"};
-                
-                LOG.info( "Create database: " + Arrays.toString(createDbCmd) );
+                executeAdminSql( "template1",
+                        "CREATE DATABASE " + dbName + " " + dbCreateArgs );
+                LOG.info( "Created database: " + dbName );
 
-                execAndWaitFor(createDbCmd, 10000 );
-                
-                final String initSql= getDbInitSql( dataManager );
-                final File sqlFile = generateTableSetupSqlFile( initSql );
-                sqlFile.deleteOnExit();
-                final String[] generateDbCmd = { PSQL, "-U", s_postgresUser,
-                                                 "-d", dbName, "-f",
-                                                 sqlFile.getAbsolutePath()};
-                LOG.info( "Generate database: " + Arrays.toString(generateDbCmd) );
-                LOG.info( "Init SQL:\n" );
+                final String initSql = getDbInitSql( dataManager );
+                LOG.info( "Initializing database " + dbName );
                 LOG.debug( initSql );
-                execAndWaitFor( generateDbCmd, 45000 );
-                sqlFile.delete();
+                executeAdminSql( dbName, initSql );
             }
             USER_DB_CONN_VALIDATED_CACHE.add( cacheKey );
         }
@@ -490,80 +466,45 @@ public final class DatabaseSupportFactory
         {
             return isValidConnection( username, DEFAULT_DB );
         }
-        
+
 
         private static boolean isValidConnection( final String username, final String dbName )
         {
-            final String[] cmd = { PSQL, "-U", username, "-d", dbName, "-c", "select version();"};
-            try
+            try ( Connection conn = connect( username, dbName ) )
             {
-                final Process p = execAndWaitFor( cmd, 500 );
-                if ( 0 == p.exitValue() )
-                {
-                    return true;
-                }
+                return conn.isValid( 2 );
             }
-            catch ( Exception ex )
+            catch ( final SQLException ex )
             {
-                LOG.info( "Failed to run: " + Arrays.toString(cmd) + " (" + ex.toString() + ")" );
+                LOG.info( "Failed to connect as " + username + " to " + dbName
+                          + " (" + ex.toString() + ")" );
                 return false;
             }
-            return false;
         }
-        
 
-        private Process psql( final String cmd )
-        {
-            return psql( cmd, DEFAULT_DB );
-        }
-        
 
-        private Process psql( final String cmd, final String dbName )
+        private static Connection connect( final String username, final String dbName )
+                throws SQLException
         {
-            final Process p = psqlIgnoreError( cmd, dbName );
-            if ( 0 != p.exitValue() )
-            {
-                LOG.warn( 
-                     "Exit status was " + p.exitValue() + " for command: " + cmd
-                     + Platform.NEWLINE + "  - " + convertStreamToString( p.getErrorStream() ) );
-            }
-            return p;
+            final String url = "jdbc:postgresql://localhost/" + dbName;
+            return DriverManager.getConnection( url, username, "" );
         }
-        
-        
-        private Process psqlIgnoreError( final String cmd, final String dbName )
+
+
+        private static void executeAdminSql( final String dbName, final String sql )
         {
-            final String[] fullCommand = { PSQL, "-U", s_postgresUser, "-d", dbName, "-c", cmd + ";"};
             final Duration duration = new Duration();
-            LOG.info( "Running command: " + Arrays.toString(fullCommand) );
-            try
+            LOG.info( "Running admin SQL on " + dbName );
+            try ( Connection conn = connect( s_postgresUser, dbName );
+                  Statement stmt = conn.createStatement() )
             {
-                final Process retval = execAndWaitFor( fullCommand, 10000 );
-                LOG.info( 
-                      "Command completed with exit status " + retval.exitValue() + " in " + duration + "." );
-                return retval;
+                stmt.execute( sql );
+                LOG.info( "Admin SQL completed in " + duration + "." );
             }
-            catch ( final Exception ex )
+            catch ( final SQLException ex )
             {
-                throw new RuntimeException( "Failed to execute command: " + cmd, ex );
-            }
-        }
-        
-        
-        private  String convertStreamToString( final InputStream is )
-        {
-            try
-            {
-                final BufferedReader bis = new BufferedReader( new InputStreamReader( is ) );
-                if ( bis.ready() )
-                {
-                    return bis.readLine();
-                }
-                return "";
-            }
-            catch ( final Exception ex )
-            {
-                throw new RuntimeException( ex );
+                LOG.warn( "Failed to execute admin SQL on " + dbName
+                          + ": " + ex.toString() );
             }
         }
     } // end inner class def
