@@ -1,0 +1,43 @@
+plugins {
+    id 'java-library'
+}
+
+configurations {
+    runtimeClasspath {
+        transitive = true
+    }
+}
+
+dependencies {
+    implementation ("software.amazon.awssdk:s3:$parent.s3SdkVersion")
+    implementation 'software.amazon.awssdk:s3-transfer-manager:2.24.13'
+    implementation 'software.amazon.awssdk:sdk-core:2.24.13'
+    implementation 'software.amazon.awssdk:transfer:2.24.13'
+    implementation 'software.amazon.awssdk:auth:2.24.13'
+    implementation 'software.amazon.awssdk:apache-client:2.24.13'
+
+
+
+    implementation ("com.fasterxml.jackson.core:jackson-annotations:$parent.jacksonVersion")
+    implementation ("com.fasterxml.jackson.core:jackson-core:$parent.jacksonVersion")
+    implementation ("com.fasterxml.jackson.core:jackson-databind:$parent.jacksonVersion")
+    implementation ("com.microsoft.azure:azure-keyvault-core:$parent.azureKeyvaultSdkVersion")
+    implementation ("com.azure:azure-core:1.45.1")
+    implementation ("com.microsoft.azure:azure-storage:$parent.azureSdkVersion")
+    implementation ("com.spectralogic.ds3:ds3-sdk:$parent.ds3SdkVersion")
+    implementation ("commons-logging:commons-logging:$parent.commonsLoggingVersion")
+    implementation ("joda-time:joda-time:$parent.jodaTimeVersion")
+    implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+    implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
+    implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
+    implementation ("org.apache.httpcomponents:httpclient:$parent.apacheHttpClientVersion")
+    implementation ("org.apache.httpcomponents:httpcore:$parent.apacheHttpCoreVersion")
+    api ("commons-codec:commons-codec:$parent.commonsCodecVersion")
+    implementation ("org.slf4j:slf4j-api:$parent.slfjVersion")
+    implementation ("org.slf4j:slf4j-log4j12:$parent.slfjVersion")
+}
+tasks.register('dockerDependencies', Copy) {
+    from configurations.runtimeClasspath
+    into "$rootDir/docker_lib" // Use a new dedicated folder name
+    include '**/*.jar'
+}
