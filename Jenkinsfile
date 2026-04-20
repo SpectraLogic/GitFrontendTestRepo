@@ -20,6 +20,7 @@ pipeline {
         PROJECT_ROOT = '.'
         BUILD_TARGET = defineBuildTarget()
         PG_CONTAINER = "pg-${env.JOB_NAME}-${env.BUILD_NUMBER}".replaceAll('[^A-Za-z0-9_.-]', '-')
+        PG_DATA_DIR = "/tmp/pgdata-${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -94,15 +95,22 @@ pipeline {
         stage('Start Database') {
             steps {
                 sh '''
-                    # Remove any leftover container from a prior failed run
+                    # Remove any leftover container/data from a prior failed run
                     docker rm -f "${PG_CONTAINER}" 2>/dev/null || true
+                    sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}"
+                    mkdir -p "${PG_DATA_DIR}"
 
+                    # Bind-mount the data dir using the same path on host and container
+                    # so that SHOW data_directory returns a path that also exists on the
+                    # Jenkins host (where the test JVM runs).
                     docker run -d \
                         --name "${PG_CONTAINER}" \
                         -e POSTGRES_USER=Administrator \
                         -e POSTGRES_PASSWORD= \
                         -e POSTGRES_HOST_AUTH_METHOD=trust \
                         -e POSTGRES_INITDB_ARGS=--lc-collate=C \
+                        -e PGDATA="${PG_DATA_DIR}" \
+                        -v "${PG_DATA_DIR}:${PG_DATA_DIR}" \
                         -p 5432:5432 \
                         postgres:18
 
@@ -155,7 +163,10 @@ pipeline {
         }
 
         always {
-            sh 'docker rm -f "${PG_CONTAINER}" 2>/dev/null || true'
+            sh '''
+                docker rm -f "${PG_CONTAINER}" 2>/dev/null || true
+                sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
+            '''
         }
     }
 }
