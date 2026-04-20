@@ -161,10 +161,14 @@ EOF
                     docker rm -fv "${AZURITE_CONTAINER}" 2>/dev/null || true
                     docker rm -fv "${LOCALSTACK_CONTAINER}" 2>/dev/null || true
 
-                    # Azurite — mirrors docker/docker-compose-azurite.yml.
+                    # Azurite. Do NOT set AZURITE_ACCOUNTS here: when
+                    # /etc/version.conf=TEST_VERSION, AzureConnectionImpl calls
+                    # CloudStorageAccount.getDevelopmentStorageAccount(), which
+                    # signs with the hard-coded Azurite default key. Overriding
+                    # AZURITE_ACCOUNTS makes the server reject those signatures
+                    # (seen as: "Server failed to authenticate the request").
                     docker run -d \
                         --name "${AZURITE_CONTAINER}" \
-                        -e AZURITE_ACCOUNTS='devstoreaccount1:Ss0sk4dZsuH0Cji92F1Ye2kuoEhv+mmYCLfLzGrdw0A1zQagbiBBbnHJNiALudX5nXXZkc4lxT0nFREbg8lpAQ==' \
                         -p 10000:10000 -p 10001:10001 -p 10002:10002 \
                         mcr.microsoft.com/azure-storage/azurite
 
