@@ -134,6 +134,26 @@ pipeline {
             }
         }
 
+        stage('Configure Test Version') {
+            steps {
+                sh '''
+                    # ConfigurationInformationProvider reads /etc/version.conf to
+                    # determine the build version. When that file is absent (as on
+                    # a bare build node), version stays unset and AzureConnectionImpl
+                    # tries to authenticate against real Azure with Azurite creds,
+                    # which fails. Writing TEST_VERSION routes it to
+                    # CloudStorageAccount.getDevelopmentStorageAccount() instead.
+                    sudo tee /etc/version.conf >/dev/null <<'EOF'
+version: TEST_VERSION
+revision: TEST_REVISION
+branch: TEST_BRANCH
+EOF
+                    echo "/etc/version.conf now contains:"
+                    cat /etc/version.conf
+                '''
+            }
+        }
+
         stage('Start Public Cloud Emulators') {
             steps {
                 sh '''
