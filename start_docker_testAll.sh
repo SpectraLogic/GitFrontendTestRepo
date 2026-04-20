@@ -26,8 +26,8 @@ TIMEOUT=60
 SLEEP_INTERVAL=5  # Check interval in seconds
 
 # Check if both containers are running
-Azurite_Running=is_container_running "${Azurite}"
-Localstack_Running=is_container_running "${Localstack}"
+Azurite_Running=$(is_container_running "${Azurite}")
+Localstack_Running=$(is_container_running "${Localstack}")
 
 All_Running=false
 if [[ -n "$Azurite_Running" && -n "$Localstack_Running" ]]; then

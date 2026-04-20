@@ -21,6 +21,11 @@ pipeline {
         BUILD_TARGET = defineBuildTarget()
         PG_CONTAINER = "pg-${env.JOB_NAME}-${env.BUILD_NUMBER}".replaceAll('[^A-Za-z0-9_.-]', '-')
         PG_DATA_DIR = "/tmp/pgdata-${env.BUILD_NUMBER}"
+        // The public-cloud tests (Azure/AWS) look for containers named exactly
+        // "azurite" and "localstack" on localhost. disableConcurrentBuilds() on
+        // this pipeline prevents collisions across runs.
+        AZURITE_CONTAINER = 'azurite'
+        LOCALSTACK_CONTAINER = 'localstack'
     }
 
     stages {
@@ -129,6 +134,57 @@ pipeline {
             }
         }
 
+        stage('Start Public Cloud Emulators') {
+            steps {
+                sh '''
+                    # Remove any leftover containers from a prior failed run.
+                    docker rm -fv "${AZURITE_CONTAINER}" 2>/dev/null || true
+                    docker rm -fv "${LOCALSTACK_CONTAINER}" 2>/dev/null || true
+
+                    # Azurite — mirrors docker/docker-compose-azurite.yml.
+                    docker run -d \
+                        --name "${AZURITE_CONTAINER}" \
+                        -e AZURITE_ACCOUNTS='devstoreaccount1:Ss0sk4dZsuH0Cji92F1Ye2kuoEhv+mmYCLfLzGrdw0A1zQagbiBBbnHJNiALudX5nXXZkc4lxT0nFREbg8lpAQ==' \
+                        -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+                        mcr.microsoft.com/azure-storage/azurite
+
+                    # LocalStack — mirrors docker/docker-compose-localstack.yml.
+                    docker run -d \
+                        --name "${LOCALSTACK_CONTAINER}" \
+                        -e SERVICES=s3 \
+                        -e DEFAULT_REGION=us-east-1 \
+                        -e HOSTNAME_EXTERNAL=localhost \
+                        -e HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true \
+                        -e DEBUG=1 \
+                        -e AWS_ACCESS_KEY_ID=test \
+                        -e AWS_SECRET_ACCESS_KEY=test \
+                        -e LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1 \
+                        -p 4566:4566 \
+                        -p 127.0.0.1:4510-4559:4510-4559 \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        localstack/localstack:3.4.0
+
+                    echo "Waiting for Azurite (blob endpoint on :10000)..."
+                    for i in $(seq 1 30); do
+                        if curl -fsS -o /dev/null -w '%{http_code}' http://localhost:10000/devstoreaccount1 2>/dev/null | grep -qE '^(200|400|403)$'; then
+                            echo "Azurite is ready."
+                            break
+                        fi
+                        sleep 2
+                    done
+
+                    echo "Waiting for LocalStack (health endpoint on :4566)..."
+                    for i in $(seq 1 30); do
+                        if curl -fsS http://localhost:4566/_localstack/health 2>/dev/null | grep -q '"s3"'; then
+                            echo "LocalStack is ready."
+                            break
+                        fi
+                        sleep 2
+                    done
+                '''
+            }
+        }
+
         stage('Test') {
            steps {
             dir("${env.PROJECT_ROOT}") {
@@ -169,6 +225,8 @@ pipeline {
                 # so an anonymous volume is created each run even though our actual
                 # data lives in the bind mount. The -v flag on docker rm reaps it.
                 docker rm -fv "${PG_CONTAINER}" 2>/dev/null || true
+                docker rm -fv "${AZURITE_CONTAINER}" 2>/dev/null || true
+                docker rm -fv "${LOCALSTACK_CONTAINER}" 2>/dev/null || true
 
                 # Clean up the bind-mounted data directory on the host.
                 sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
