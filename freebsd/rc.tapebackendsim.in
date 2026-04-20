@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# PROVIDE: tapebackendsim
+# REQUIRE: postgresql bluestorm_prep
+# BEFORE: tomcat9
+# KEYWORD: shutdown
+
+# Define these tapebackendsim_* variables in one of these files:
+#	/etc/rc.conf
+#	/etc/rc.conf.local
+#	/etc/rc.conf.d/bluestorm_prep
+#	/usr/local/etc/rc.conf.d/bluestorm_prep
+#
+# DO NOT CHANGE THE DEFAULT VALUES HERE
+
+tapebackendsim_enable=${tapebackendsim_enable:-"NO"}
+if [ -z "${tapebackendsim_out_log}" ]; then
+	tapebackendsim_out_log="/var/log/tapebackendsim.startup.log"
+fi
+
+. /etc/rc.subr
+
+# read the tapesystem and tapebackendsim config file
+[ -r /etc/spectra/tapesystem ] && . /etc/spectra/tapesystem
+if [ -z "${TAPEBACKENDSIM_HOME}" ]; then
+	TAPEBACKENDSIM_HOME="/usr/local/bluestorm/frontend/simulator"
+fi
+TAPEBACKENDSIM_FILE=${TAPEBACKENDSIM_FILE:-"simulator"}
+TAPEBACKENDSIM_PATH=${TAPEBACKENDSIM_HOME}/bin/${TAPEBACKENDSIM_FILE}
+
+name="tapebackendsim"
+procname="*/java" # match any java binary that actually gets executed
+rcvar="tapebackendsim_enable"
+start_cmd="${name}_start"
+pidfile="/var/run/${name}.pid"
+required_files=${TAPEBACKENDSIM_PATH}
+
+tapebackendsim_start()
+{
+	echo "Starting tapebackendsim."
+	/usr/sbin/daemon -p ${pidfile} /bin/sh -c \
+	    "env JAVA_OPTS='${default_java_opts}' PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin ${TAPEBACKENDSIM_PATH} >> ${tapebackendsim_out_log} 2>&1"
+}
+
+load_rc_config $name
+run_rc_command "$1"

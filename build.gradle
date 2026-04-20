@@ -1,0 +1,403 @@
+
+// Config file eleganance and cleanliness hit their productive limit when they
+// begin avoidably costing time and money. For example, when they drive
+// developers into the jaw-droppingly poor Gradle web "documentation" for rarely
+// needed dev-only-useful config params. If a commented out config param is
+// labeled 'dev-only', please do not delete it, as doing so will later cost
+// SL avoidable time and money, becuase the next developer will have to look it
+// up again. If you add a new one, please add a 'dev-only' comment to it, and
+// don't forget to comment out all 'dev-only' config params before pushing
+// updates to this file to Perforce main.
+
+allprojects {
+    group = 'com.spectralogic.s3'
+    version = '0.0.4-SNAPSHOT'
+    if (JavaVersion.current().isJava8Compatible()) {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
+
+}
+
+// Adds tasks which create/clean IntelliJ project files
+apply plugin: 'idea'
+
+subprojects {
+    apply plugin: 'java'
+    plugins.withId('java') {
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform {
+                if (project.hasProperty('includeTags')) {
+                    includeTags project.property('includeTags')
+                    println "Gradle Test Task (${project.name}): Including only tests with tag '${project.property('includeTags')}'"
+                }
+                excludeTags 'LargeCache'
+                //This is for CI Jenkins
+                def skipCITests = System.getenv('SKIP_CI_TESTS')?.toLowerCase()
+                def skipRpcValue = System.getenv('SKIP_RPC_TESTS')?.toLowerCase()
+                def skipDataPlannerValue = System.getenv('SKIP_DATAPLANNER_TESTS')?.toLowerCase()
+                def skipCloudTests = System.getenv('SKIP_PUBLIC_CLOUD_TESTS')?.toLowerCase()
+                if ("true" == skipCITests) {
+                    excludeTags 'rpc-integration'
+                    excludeTags 'dataplanner-integration'
+                    excludeTags 'public-cloud-integration'
+                    println "Gradle Test Task (${project.name}): Excluding 'dataplanner, cloud, and rpc' tests"
+                } else {
+                    if ("true" == skipRpcValue) {
+                        excludeTags 'rpc-integration'
+                        println "Gradle Test Task (${project.name}): Excluding 'RPC' tests"
+                    }
+                    if ("true" == skipDataPlannerValue) {
+                        excludeTags 'dataplanner-integration'
+                        println "Gradle Test Task (${project.name}): Excluding 'Dataplanner' tests"
+                    }
+                    if ("true" == skipCloudTests) {
+                        excludeTags 'public-cloud-integration'
+                        println "Gradle Test Task (${project.name}): Excluding 'public cloud integration' tests"
+                    }
+                    else {
+                        println "Gradle Test Task (${project.name}): Running all tests"
+                    }
+                }
+            }
+
+        }
+    }
+
+    if ( null != System.getProperty( "use.aspectj" ) )
+        apply from: "../AspectJTools.gradle"
+
+    compileJava.options.encoding = 'UTF-8'
+    compileTestJava.options.encoding = 'UTF-8'
+
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+
+/*    configurations {
+        deps
+        testDeps {
+            extendsFrom deps
+        }
+        deps1 {
+            canBeResolved = true
+            canBeConsumed = false
+            extendsFrom implementation
+        }
+        testDeps1 {
+            extendsFrom testImplementation
+        }
+    }
+
+    task copyToLib(type: Copy) {
+        from configurations.deps1
+        from configurations.testDeps
+        into "$rootDir/lib"
+        includeEmptyDirs = false
+        exclude '**fast-md5-**'
+    }*/
+
+    configurations {
+        deps
+        testDeps {
+            extendsFrom deps
+        }
+    }
+
+    tasks.register('copyToLib', Copy) {
+        from(configurations.runtimeClasspath, configurations.testRuntimeClasspath)
+        into "$rootDir/lib"
+
+        include '**/*.jar'
+        exclude '**/fast-md5-**'
+        exclude '**/ds3-sdk-**'
+
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        includeEmptyDirs = false
+        onlyIf {
+            // This is the correct use of onlyIf
+            // It returns true only if the project is 'integrationtests'
+            // AND Gradle is in offline mode.
+            (project.name != 'integrationtests' && gradle.startParameter.isOffline())
+        }
+    }
+
+    repositories {
+        flatDir {
+            dirs "$projectDir/../lib", "$projectDir/../lib-testonly"
+        }
+        mavenCentral()
+        maven {
+            url 'https://jitpack.io'
+        }
+    }
+
+    dependencies {
+        testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
+        testImplementation 'org.mockito:mockito-core:5.12.0' // Use a recent Mockito version
+        testImplementation 'org.powermock:powermock-module-junit4:2.0.9' // Or powermock-module-junit4-rule if using rules
+        testImplementation 'org.powermock:powermock-api-mockito2:2.0.9' // Use powermock-api-mockito2 for Mockito 2+ // For mocking final classes/methods
+        testImplementation 'net.bytebuddy:byte-buddy:1.14.9'    // Required by Mockito
+        testImplementation 'net.bytebuddy:byte-buddy-agent:1.14.9'
+        testImplementation 'org.objenesis:objenesis:3.3'
+        annotationProcessor "org.apache.logging.log4j:log4j-core:$log4jVersion"
+        implementation "org.apache.logging.log4j:log4j-api:$log4jVersion"
+        implementation "org.apache.logging.log4j:log4j-1.2-api:$log4jVersion"
+        // JUnit Jupiter (for writing new JUnit 5 tests)
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+        testImplementation 'org.apiguardian:apiguardian-api:1.1.2'
+        // JUnit Vintage (for backward compatibility with JUnit 3/4 tests)
+        testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.0'
+        //testImplementation 'junit:junit:4.11'
+        implementation 'org.projectlombok:lombok:1.18.36'
+        testImplementation 'org.projectlombok:lombok:1.18.36'
+        annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
+
+        if ( null != System.getProperty( "use.aspectj" ) )
+            implementation fileTree( dir: "lib-testonly" , include: "*aspectj*.jar" )
+        // Above adds AspectJ jars to main and test compile classpaths.
+    }
+
+    test {
+        String tmpDir = System.getProperty("java.io.tmpdir")
+        String heapDumpPath = System.getenv()['JAVA_HEAP_DUMP_PATH']
+        if ( null == heapDumpPath ) {
+            heapDumpPath = tmpDir + "java_tests.hprof"
+        }
+        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED', '-Djava.io.tmpdir=' + tmpDir, '-Dfile.encoding=UTF-8', '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=' + heapDumpPath
+        minHeapSize = "512m"
+        maxHeapSize = "2048m"
+
+        testLogging {
+            exceptionFormat = 'full'
+            showStackTraces = true
+            showCauses = true
+            showExceptions = true
+
+            // Dev-only: 'showStandardStreams' turns Gradle console output into
+            //           something useful when dealing with cmd line build or
+            //           test issues: real time and grep-able logging output.
+            //showStandardStreams = true
+        }
+
+        doFirst {
+            if ( null != System.getProperty( "use.aspectj" ) )
+                classpath = classpath.plus( parent.fileTree(
+                        dir: "lib-testonly" , include: "*aspectj*.jar" ) )
+            // Above adds AspectJ jars to JUnit runner JVM's classpath.
+
+            // Dev-only: Print each subproject's tests runtime classpath.
+            //println project.getPath() + " test runtime classpath: " + classpath.asPath
+        }
+
+        beforeSuite { desc ->
+            if ( null != desc.className ) {
+                System.out.println ""
+                System.out.print "${desc.className}"
+                System.out.flush()
+            }
+        }
+        afterTest { desc, result ->
+            System.out.print "."
+            System.out.flush()
+        }
+        afterSuite { desc, result ->
+            if ( null != desc.className ) {
+                System.out.print "${result.resultType}"
+                if ( TestResult.ResultType.FAILURE == result.resultType ) {
+                    println ""
+                    println ""
+                    println ""
+                    println "     <<<<<<< ATTENTION >>>>>>>"
+                    println ""
+                }
+                System.out.flush()
+            }
+            else {
+                println ""
+                System.out.flush()
+            }
+        }
+    }
+
+    compileJava {
+        //dependsOn(copyToLib)
+        doFirst {
+            // Dev-only: Print each subproject's application compile classpath.
+            //println project.getPath() + " compile classpath: " + classpath.asPath
+        }
+    }
+
+    compileTestJava {
+        //dependsOn(copyToLib)
+        doFirst {
+            // Dev-only: Print each subproject's tests compile classpath.
+            //println project.getPath() + " tests compile classpath: " + classpath.asPath
+        }
+    }
+}
+
+project(':common') {
+    apply plugin: 'java-library'
+    tasks.named('copyToLib') {
+        dependsOn(
+            project(':util').tasks.named('copyToLib')
+        )
+    }
+
+    tasks.named('compileJava') {
+        dependsOn tasks.named('copyToLib')
+    }
+    dependencies {
+        api project(':util')
+        // This entry means common's tests have compile (and
+        // runtime) dependencies on util's test classes:
+        testImplementation project(':util').sourceSets.test.output
+    }
+}
+
+project(':target') {
+    tasks.named('compileJava') {
+        mustRunAfter tasks.named('copyToLib')
+    }
+    tasks.named('compileTestJava') {
+        mustRunAfter tasks.named('copyToLib')
+    }
+    tasks.named('test') {
+        mustRunAfter tasks.named('copyToLib')
+    }
+    tasks.named('copyToLib') {
+        dependsOn(
+            project(':common').tasks.named('copyToLib'),
+            project(':util').tasks.named('copyToLib'),
+            project(':server').tasks.named('copyToLib'),
+        )
+    }
+    dependencies {
+        implementation project(':common')
+        testImplementation project(':util').sourceSets.test.output
+        testImplementation project(':common').sourceSets.test.output
+        implementation "software.amazon.awssdk:s3:$parent.s3SdkVersion"
+        implementation 'software.amazon.awssdk:s3-transfer-manager:2.24.13'
+        implementation 'software.amazon.awssdk:sdk-core:2.24.13'
+        implementation 'software.amazon.awssdk:transfer:2.24.13'
+        implementation 'software.amazon.awssdk:auth:2.24.13'
+        implementation 'software.amazon.awssdk:apache-client:2.24.13'
+    }
+}
+
+project(':DataPlanner') {
+    tasks.named('copyToLib') {
+        dependsOn(
+           project(':common').tasks.named('copyToLib')
+        )
+    }
+    tasks.named('test') {
+        dependsOn(
+           project(':simulator').tasks.named('compileJava')
+        )
+    }
+    dependencies {
+        implementation project(':common')
+        implementation project(':simulator')
+        testImplementation project(':util').sourceSets.test.output
+        testImplementation project(':common').sourceSets.test.output
+        implementation project(':target')
+    }
+}
+
+project(':server') {
+    tasks.named('copyToLib') {
+        dependsOn(
+                project(':common').tasks.named('copyToLib')
+        )
+    }
+    dependencies {
+        implementation project(':common')
+        testImplementation project(':util').sourceSets.test.output
+        testImplementation project(':common').sourceSets.test.output
+    }
+}
+
+project(':simulator') {
+    tasks.named('test') {
+        dependsOn(':simulator:copyToLib')
+    }
+    tasks.named('copyToLib') {
+        dependsOn project(':common').tasks.named('copyToLib')
+        dependsOn project(':server').tasks.named('copyToLib')
+        dependsOn project(':target').tasks.named('copyToLib')
+    }
+    dependencies {
+        implementation project(':common')
+        testImplementation project(':util').sourceSets.test.output
+        testImplementation project(':common').sourceSets.test.output
+    }
+}
+
+project(':util') {
+    tasks.named('test') {
+        dependsOn project(':common').tasks.named('copyToLib')
+    }
+    tasks.named('compileJava') {
+        dependsOn tasks.named('copyToLib')
+    }
+    tasks.named('javadoc') {
+        dependsOn project(':common').tasks.named('copyToLib')
+    }
+}
+
+if (findProject(":integrationtests") != null) {
+    project(':integrationtests') {
+        dependencies {
+            implementation project(':common')
+            testImplementation project(':util').sourceSets.test.output
+            testImplementation project(':common').sourceSets.test.output
+        }
+    }
+}
+
+task copyRequestHandlerResponses(type: Copy) {
+    from System.getProperty("java.io.tmpdir")
+    into 'server/src/main/resources'
+    include 'requesthandlerresponses.props'
+}
+
+task copyRequestHandlerXml(type: Copy) {
+    from System.getProperty("java.io.tmpdir")
+    into 'server/src/main/resources'
+    include 'request-*.xml'
+}
+
+task copyNotificationPayloadsXml(type: Copy) {
+    from System.getProperty("java.io.tmpdir")
+    into 'common/src/main/resources'
+    include 'notification-payloads.xml'
+}
+
+
+tasks.getByPath(':common:test').mustRunAfter(':util:test')
+tasks.getByPath(':target:test').mustRunAfter(':common:test')
+tasks.getByPath(':simulator:test').mustRunAfter(':target:test')
+tasks.getByPath(':DataPlanner:test').mustRunAfter(':simulator:test')
+tasks.getByPath(':server:test').mustRunAfter(':DataPlanner:test')
+
+
+gradle.taskGraph.beforeTask { Task task ->
+    task.ext.setProperty("lastProgressTime", new java.util.Date())
+    task.ext.setProperty("startTime", new java.util.Date())
+}
+
+gradle.taskGraph.afterTask { Task task, TaskState state ->
+    int secs = ( new java.util.Date().getTime() - task.ext.startTime.getTime() ) / 1000
+    int mins = secs / 60
+
+    if ( 9 < secs ) {
+        int sec = secs - mins * 60
+        println " -> ${task.name} took " + mins + ( ( 1 == mins ) ? " min " : " mins " ) + sec + ( ( 1 == sec ) ? " sec" : " secs" )
+        println ""
+    }
+}
+

@@ -1,0 +1,6 @@
+{
+  "numPools": 2,
+  "getPoolGenerationNumberDelay": 100,
+  "getPoolEnvironmentDelay": 100,
+  "mountPoint": "/etc/spectra/pools"
+}

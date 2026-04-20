@@ -1,0 +1,7 @@
+# Use the official PostgreSQL image as the base
+FROM postgres:18
+
+# Copy the SQL initialization scripts into the container
+# The official image's entrypoint will automatically run these scripts
+COPY common/build/libs/dao.sql /docker-entrypoint-initdb.d/
+COPY docker/data.sql /docker-entrypoint-initdb.d/

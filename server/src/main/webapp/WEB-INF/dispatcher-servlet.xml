@@ -1,0 +1,65 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/beans xmlschema/spring-beans.xsd
+        http://www.springframework.org/schema/context xmlschema/spring-context.xsd
+        http://www.springframework.org/schema/mvc xmlschema/spring-mvc.xsd">
+        
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="location">
+			<value>file:/etc/spectralogic/tapesystem.properties</value>
+		</property>
+	</bean>
+
+	<mvc:annotation-driven />
+
+	<bean id="s3controller" destroy-method="shutdown" class="com.spectralogic.s3.server.dispatch.S3Controller" depends-on="s3RequestDispatcher">
+        <constructor-arg ref="s3RequestDispatcher" />
+	</bean>
+	 <!-- Default to default controller -->
+    <bean class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping">
+        <property name="defaultHandler" ref="s3controller"/>
+    </bean>
+   
+	<bean id="s3RequestDispatcher" class="com.spectralogic.s3.server.dispatch.RequestDispatcherImpl">
+        <constructor-arg ref="dataSource"/>
+		<constructor-arg ref="rpcClient"/>
+	</bean>
+
+    <!-- RPC Client Bean using Environment Variables -->
+    <bean id="rpcClient" class="com.spectralogic.util.net.rpc.client.RpcClientImpl" destroy-method="shutdown">
+        <constructor-arg value="#{systemEnvironment['RPCHOST'] ?: 'localhost'}"/>
+        <constructor-arg value="60010"/>
+    </bean>
+
+
+	
+	<!-- TODO
+	<bean class="com.spectralogic.s3.server.controllers.ConfigController">
+		TODO
+		<property name="configlist">
+            <list>
+                <ref bean="queuedtapeservice"/>
+                <ref bean="tapeinterface"/>
+            </list>
+        </property>
+	</bean>
+	
+	-->
+	
+	
+	<!-- low-level database compoents										-->
+
+    <bean id="dataSource" class="com.spectralogic.util.db.manager.postgres.PostgresDataSource">
+        <constructor-arg value="${com.spectralogic.em.jiveresource.host}" />
+        <constructor-arg value="${com.spectralogic.em.jiveresource.schema}" />
+        <constructor-arg value="${com.spectralogic.em.jiveresource.username}" />
+        <constructor-arg value="${com.spectralogic.em.jiveresource.password}" />
+    </bean>
+
+    <bean id="dataViewViewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver" >
+		<property name="prefix" value="/"/>
+	</bean>
+</beans>

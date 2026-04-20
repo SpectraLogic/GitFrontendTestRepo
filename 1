@@ -1,0 +1,129 @@
+# New ports collection makefile for:	BlueStorm Frontend
+# Date created:                         27 Sep 2013
+# Whom:                                 Robert F. Grimm (<robg@spectralogic.com>)
+
+P4_DIR=		product/frontend
+
+PORTNAME=	bluestorm_frontend
+PORTVERSION=	2.1.${P4_VERSION}
+CATEGORIES=	spectra net
+DISTFILES=	# Only supplied by perforce
+
+MAINTAINER=	redlineengineers@spectralogic.com
+COMMENT=	BlueStorm S3 frontend components
+
+USES=		pgsql
+WANT_PGSQL=	server client
+USE_RUBY=	YES
+
+BUILD_DEPENDS=	gradle>=0:devel/gradle \
+		rubygem-pg>=0.0.1:databases/rubygem-pg \
+		rubygem-activerecord61>=0:databases/rubygem-activerecord61 \
+		rubygem-spectra_support>=0:devel/rubygem-spectra_support
+
+RUN_DEPENDS=	tomcat9>=9.0.76:www/tomcat9 \
+		tomcat-native>=0:www/tomcat-native \
+                sqlite3>=0:databases/sqlite3 \
+                curl>=0:ftp/curl
+
+JARS=		bluestorm/jars
+FRONTEND=	bluestorm/frontend
+WEBAPPS=	${FRONTEND}/webapps
+DATAPLANNER=	${FRONTEND}/dataplanner
+SIMULATOR=	${FRONTEND}/simulator
+
+DATAPLANNER_DB=	${WRKSRC}/DataPlanner/db
+BLUESTORM_DB=	bluestorm/db
+
+OUTSUBDIR=	build/libs
+TARSUBDIR=	build/distributions
+DATAPLANNERTARSUBDIR = DataPlanner/${TARSUBDIR}
+SIMULATORTARSUBDIR = simulator/${TARSUBDIR}
+JAVADOCS=	javadocs
+DAO_C_HDR_WRK=	common/${OUTSUBDIR}/c
+DAO_C_HDR=	include/bluestorm/dao
+DAO_SQL=	common/${OUTSUBDIR}/dao.sql
+DB_RAKEFILE=	${WRKSRC}/sql/Rakefile
+
+
+PLIST_FILES=	${BLUESTORM_DB}/dao.sql \
+		${SIMULATOR}/bin/simulator \
+		${DATAPLANNER}/bin/DataPlanner \
+		etc/rc.d/dataplanner \
+		etc/rc.d/tapebackendsim \
+		etc/rc.d/frontend
+
+pre-build:
+	cd ${WRKSRC} && sh setup_temp_postgres.sh ${WRKDIR}
+
+do-build:
+# Disabling frontend tests as they fail running in the jail with java.io.IOException: Too many open files 10/5/2022
+	export SKIP_DOCKER_INTEGRATION=true; export SKIP_RPC_TESTS=true; cd ${WRKSRC} && ./testAll.sh || { killall -15 postgres; false; }
+	cd ${WRKSRC} && ./packageAll.sh
+	cd ${WRKSRC} && ./generateJavadocs.sh
+	cd ${WRKSRC} && ruby compare_databases.rb ${DAO_SQL} ${DB_RAKEFILE} || \
+		(killall -15 postgres; false)
+	killall -15 postgres
+	cd ${WRKSRC}/freebsd && ${MAKE} ${MAKE_ARGS}
+
+# NB: The post-install-script target handles generating the packing list
+#     entries for versioned filenames, and must be updated if those files
+#     are moved to another location.
+do-install:
+	${INSTALL_SCRIPT} ${WRKSRC}/freebsd/dataplanner ${STAGEDIR}${PREFIX}/etc/rc.d
+	${INSTALL_SCRIPT} ${WRKSRC}/freebsd/frontend ${STAGEDIR}${PREFIX}/etc/rc.d
+	${INSTALL_SCRIPT} ${WRKSRC}/freebsd/tapebackendsim ${STAGEDIR}${PREFIX}/etc/rc.d
+	${MKDIR} ${STAGEDIR}${PREFIX}/${DATAPLANNER} \
+		${STAGEDIR}${PREFIX}/${WEBAPPS} \
+		${STAGEDIR}${PREFIX}/${BLUESTORM_DB} \
+		${STAGEDIR}${PREFIX}/${DAO_C_HDR} \
+		${STAGEDIR}${PREFIX}/${SIMULATOR} \
+		${STAGEDIR}${PREFIX}/${JARS} \
+		${STAGEDIR}${PREFIX}/${JAVADOCS}
+	${INSTALL_DATA} ${WRKSRC}/*/${OUTSUBDIR}/*.jar ${STAGEDIR}${PREFIX}/${JARS}
+	${TAR} -xvf ${WRKSRC}/${DATAPLANNERTARSUBDIR}/*.tar -C ${STAGEDIR}${PREFIX}/${DATAPLANNER} --strip-components=1
+	${TAR} -xvf ${WRKSRC}/${SIMULATORTARSUBDIR}/*.tar -C ${STAGEDIR}${PREFIX}/${SIMULATOR} --strip-components=1
+	${RM} ${STAGEDIR}${PREFIX}/${DATAPLANNER}/bin/DataPlanner.bat
+	${RM} ${STAGEDIR}${PREFIX}/${SIMULATOR}/bin/simulator.bat
+	${INSTALL_DATA} ${WRKSRC}/*/${OUTSUBDIR}/*.sql ${STAGEDIR}${PREFIX}/${BLUESTORM_DB}
+	${INSTALL_DATA} ${WRKSRC}/*/${OUTSUBDIR}/*.war ${STAGEDIR}${PREFIX}/${WEBAPPS}
+	${INSTALL_DATA} ${WRKSRC}/${DAO_C_HDR_WRK}/*.h ${STAGEDIR}${PREFIX}/${DAO_C_HDR}
+.if ${PRODUCTION} == 0
+	@echo "PRODUCTION: \"${PRODUCTION}\", installing Javadocs"
+	@echo "Going from ${WRKSRC}/${JAVADOCS} to ${STAGEDIR}${PREFIX}/${JAVADOCS}"
+	cd ${WRKSRC} && ${TAR} -cvf - ${JAVADOCS} | (cd ${STAGEDIR}${PREFIX} && tar -xvf -)
+.else
+	@echo "PRODUCTION: \"${PRODUCTION}\""
+	@echo "Production mode, skipping Javadocs installation"
+.endif
+	cd ${WRKSRC}/sql && ${MAKE} DESTDIR=${STAGEDIR} install
+
+post-install-script:
+	@echo "Generating plist..."
+	@cd ${WRKSRC} && for i in */${OUTSUBDIR}/*.jar; do		\
+		echo "${JARS}/`basename $$i`" >> ${TMPPLIST};		\
+	done
+	@cd ${WRKSRC} && for i in */${OUTSUBDIR}/*.war; do		\
+		echo "${WEBAPPS}/`basename $$i`" >> ${TMPPLIST};	\
+	done
+	@cd ${WRKSRC} && for i in ${DAO_C_HDR_WRK}/*.h; do		\
+		echo "${DAO_C_HDR}/`basename $$i`" >> ${TMPPLIST};	\
+	done
+	@cd ${STAGEDIR}${PREFIX}/${DATAPLANNER}				\
+        && for i in lib/*.jar; do					\
+		echo "bluestorm/frontend/dataplanner/lib/`basename $$i`" >> ${TMPPLIST};	\
+	done
+	@cd ${STAGEDIR}${PREFIX}/${SIMULATOR}				\
+        && for i in lib/*.jar; do					\
+		echo "bluestorm/frontend/simulator/lib/`basename $$i`" >> ${TMPPLIST};	\
+	done
+	cd ${STAGEDIR}${PREFIX} && \
+		${FIND} ${JAVADOCS} -type f -print |sort |tee -a ${TMPPLIST}
+	cd ${WRKSRC}/sql && \
+        	${FIND} * -type f | grep -v Makefile | sort | \
+        	sed -e 's,^,bluestorm/db/,g' >> ${TMPPLIST}
+	cd ${WRKSRC}/sql && \
+        	${FIND} * -d -type d | \
+        	sed -e 's,^,@dir bluestorm/db/,g' >> ${TMPPLIST}
+
+.include <bsd.port.mk>

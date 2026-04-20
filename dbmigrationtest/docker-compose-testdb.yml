@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: Administrator
+      POSTGRES_PASSWORD: ""
+      POSTGRES_DB: test_dao
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--lc-collate=C"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - shared_data:/tmp # Mount the shared volume
+    ports:
+      - "5533:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "Administrator", "-d", "test_dao"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-db-network
+
+  databasetest:
+    build:
+      context: ../../../
+      dockerfile: product/frontend/dbmigrationtest/Dockerfile-ruby-db
+    container_name: databasetest
+    environment:
+      - PGHOST=postgres  # Use the service name as the hostname
+      - PGUSER=Administrator
+      - PGPASSWORD=""
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - test-db-network
+    volumes:
+      - shared_data:/tmp # Mount the same shared volume
+
+volumes:
+  shared_data: # Define the shared volume
+
+networks:
+  test-db-network:
+    driver: bridge

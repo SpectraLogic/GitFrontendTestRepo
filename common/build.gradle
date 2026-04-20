@@ -1,0 +1,40 @@
+/*******************************************************************************
+ *
+ * Copyright C 2017, Spectra Logic Corporation and/or its affiliates.
+ * All rights reserved.
+ *
+ ******************************************************************************/
+plugins {
+    id 'java-library'
+}
+dependencies {
+    implementation ("commons-codec:commons-codec:$parent.commonsCodecVersion") {
+        transitive = false
+    }
+    implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") {
+        transitive = false
+    }
+    implementation("org.apache.logging.log4j:log4j-api:$log4jVersion") {
+        transitive = false
+    }
+    implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion") {
+        transitive = false
+    }
+    implementation ("javax.servlet:javax.servlet-api:$parent.servletVersion") {
+        transitive = false
+    }
+    api ("org.springframework:spring-context:$parent.springVersion") {
+        transitive = false
+    }
+    implementation 'org.reflections:reflections:0.9.11'
+    testImplementation 'org.reflections:reflections:0.9.11'
+    testImplementation 'org.hamcrest:hamcrest-core:1.3'
+    testImplementation 'com.google.guava:guava:20.0'
+    testImplementation 'org.javassist:javassist:3.21.0-GA'
+}
+
+task(compileSql, dependsOn: 'jar', type:JavaExec) {
+    mainClass = 'com.spectralogic.util.db.codegen.cli.GenerateCode'
+    classpath = sourceSets.main.runtimeClasspath
+    args "com.spectralogic.s3.common.dao.domain.DaoDomainsSeed", "$projectDir/build/libs/dao.sql", "$projectDir/build/libs/c"
+}

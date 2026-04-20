@@ -1,0 +1,68 @@
+<NotificationPayloads>
+  <Type>
+    <Name>AzureTargetFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:46.374Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;TargetId&gt;aa304fb3-f87f-4305-985e-867f0bc76b17&lt;/TargetId&gt;&lt;Type&gt;NOT_ONLINE&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>BucketChangesNotificationPayload</Name>
+    <Payload>&lt;Changes&gt;&lt;BucketId&gt;b9f41335-7e1d-467f-bcaf-d26cafb0634c&lt;/BucketId&gt;&lt;Id&gt;0bbc18f5-84d9-40e0-8069-d9a28571fdad&lt;/Id&gt;&lt;ObjectCreationDate&gt;2025-04-08T20:16:46.563Z&lt;/ObjectCreationDate&gt;&lt;ObjectName&gt;o1&lt;/ObjectName&gt;&lt;SequenceNumber&gt;2&lt;/SequenceNumber&gt;&lt;Type&gt;MARK_LATEST&lt;/Type&gt;&lt;VersionId&gt;0ebef164-70a8-4ba0-9180-52a6869584ff&lt;/VersionId&gt;&lt;/Changes&gt;&lt;Changes&gt;&lt;BucketId&gt;b9f41335-7e1d-467f-bcaf-d26cafb0634c&lt;/BucketId&gt;&lt;Id&gt;f779b207-8f7c-4a41-bef9-e2ebddf73e2c&lt;/Id&gt;&lt;ObjectCreationDate&gt;2025-04-08T20:16:46.563Z&lt;/ObjectCreationDate&gt;&lt;ObjectName&gt;o1&lt;/ObjectName&gt;&lt;SequenceNumber&gt;1&lt;/SequenceNumber&gt;&lt;Type&gt;CREATE&lt;/Type&gt;&lt;VersionId&gt;426ebc05-31eb-4478-bb54-95c0887e30a5&lt;/VersionId&gt;&lt;/Changes&gt;&lt;LastProcessedEvent&gt;0&lt;/LastProcessedEvent&gt;&lt;NotificationGenerationDate/&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>Ds3TargetFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:46.649Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;TargetId&gt;96c2f300-da83-4cfe-8ee9-19d8c55bf417&lt;/TargetId&gt;&lt;Type&gt;NOT_ONLINE&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>GenericDaoNotificationPayload</Name>
+    <Payload>&lt;DaoType&gt;com.spectralogic.s3.common.platform.notification.generator.GenericDaoNotificationPayloadGenerator_Test&lt;/DaoType&gt;&lt;Ids&gt;2a697853-8333-42ad-a16b-e002b51705bb&lt;/Ids&gt;&lt;NotificationGenerationDate/&gt;&lt;SqlOperation&gt;SELECT&lt;/SqlOperation&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>JobCompletedNotificationPayload</Name>
+    <Payload>&lt;CancelOccurred&gt;true&lt;/CancelOccurred&gt;&lt;JobId&gt;97cbd80b-ef0b-4564-bce3-5a9a06f26f4b&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;&lt;ObjectsNotPersisted&gt;&lt;Object Id="023e4e3f-fe1f-40bc-a646-2903b913a7e2" Latest="true" Length="100" Name="o1" Offset="0" VersionId="bef1079b-9355-4b8b-ad14-f1bfe469c5ae"/&gt;&lt;Object Id="fe5e92d4-7ac9-496a-83d6-7a3c566a21ce" Latest="true" Length="100" Name="o2" Offset="0" VersionId="f2378b63-c3c0-4188-9eb7-c53507286185"/&gt;&lt;/ObjectsNotPersisted&gt;</Payload>
+    <Payload>&lt;CancelOccurred&gt;true&lt;/CancelOccurred&gt;&lt;JobId&gt;687f2eb3-e360-4904-a552-4d6c10215393&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;&lt;ObjectsNotPersisted/&gt;</Payload>
+    <Payload>&lt;CancelOccurred&gt;false&lt;/CancelOccurred&gt;&lt;JobId&gt;f88ed8c3-7d09-4989-926d-61f4a281743a&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;&lt;ObjectsNotPersisted/&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>JobCreatedNotificationPayload</Name>
+    <Payload>&lt;JobId&gt;a5a4070f-bd79-4b0e-a646-f661fa31b56b&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>JobCreationFailedNotificationPayload</Name>
+    <Payload>&lt;ErrorMessage&gt;error!&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;TapesMustBeOnlined&gt;&lt;TapesToOnline&gt;&lt;TapeBarCodes&gt;{a&lt;/TapeBarCodes&gt;&lt;TapeBarCodes&gt;b}&lt;/TapeBarCodes&gt;&lt;/TapesToOnline&gt;&lt;/TapesMustBeOnlined&gt;&lt;UserName&gt;Test&lt;/UserName&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>PoolFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.162Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;PoolId&gt;e9574e69-a10b-45c8-89e2-4d1d946f9f3e&lt;/PoolId&gt;&lt;Type&gt;INSPECT_FAILED&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>S3ObjectsCachedNotificationPayload</Name>
+    <Payload>&lt;JobId&gt;3e5bc3f9-5c0e-4244-a121-4d8bab53887f&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;&lt;Objects&gt;&lt;Object Id="8caf98b7-01ab-4c40-99f4-520f2b28c11f" Latest="true" Length="100" Name="o1" Offset="0" VersionId="19cc10c2-bcac-4107-b15b-b533ec613be0"/&gt;&lt;Object Id="fcde7edb-03cf-47d3-be0f-d9d8e20c8522" Latest="true" Length="100" Name="o2" Offset="0" VersionId="11c71ee2-9bc9-4466-8864-ca7cff17b945"/&gt;&lt;/Objects&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>S3ObjectsLostNotificationPayload</Name>
+    <Payload>&lt;NotificationGenerationDate/&gt;&lt;Objects&gt;&lt;Object Bucket="bucket" Id="556718cc-f9b4-46db-a3de-67bb9788d9e5" Latest="true" Length="100" Name="o1" Offset="0" VersionId="1f1f5699-5fed-4267-adfc-34f63a6c9f6d"/&gt;&lt;Object Bucket="bucket" Id="2a87c378-7994-4b03-b46d-35ab681dd545" Latest="true" Length="100" Name="o2" Offset="0" VersionId="2051e3ca-3635-4bc3-8b3f-a393cf90b654"/&gt;&lt;/Objects&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>S3ObjectsPersistedNotificationPayload</Name>
+    <Payload>&lt;JobId&gt;af4cbc61-c60e-409f-81b1-ef512ed8c617&lt;/JobId&gt;&lt;NotificationGenerationDate/&gt;&lt;Objects&gt;&lt;Object Id="acf9898b-e1c8-4ca7-aa74-69568b8bacd8" Latest="true" Length="100" Name="o1" Offset="0" VersionId="f4c28995-a531-458d-9bb6-5932623d6ed6"/&gt;&lt;Object Id="18820e65-5811-418e-b504-3df2a9cf0ec6" Latest="true" Length="100" Name="o2" Offset="0" VersionId="3e4af939-bb10-42da-92cc-1431bff7d580"/&gt;&lt;/Objects&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>S3TargetFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.695Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;TargetId&gt;39b271fa-281a-41b8-9af9-b483b9694404&lt;/TargetId&gt;&lt;Type&gt;NOT_ONLINE&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>StorageDomainFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.703Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;StorageDomainId&gt;b2d2979d-da0b-4b8b-8c50-75676f5a0942&lt;/StorageDomainId&gt;&lt;Type&gt;ILLEGAL_EJECTION_OCCURRED&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>SystemFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.712Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;Type&gt;RECONCILE_TAPE_ENVIRONMENT_FAILED&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>TapeFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.720Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;TapeDriveId&gt;c0ecbf1f-0f2c-4835-bac8-28d022934c96&lt;/TapeDriveId&gt;&lt;TapeId&gt;d030202e-13b1-4108-ba78-a787c6f8585f&lt;/TapeId&gt;&lt;Type&gt;INSPECT_FAILED&lt;/Type&gt;</Payload>
+  </Type>
+  <Type>
+    <Name>TapePartitionFailureNotificationPayload</Name>
+    <Payload>&lt;Date&gt;2025-04-08T20:16:47.728Z&lt;/Date&gt;&lt;ErrorMessage&gt;oops, there was an error&lt;/ErrorMessage&gt;&lt;NotificationGenerationDate/&gt;&lt;PartitionId&gt;66911351-f62f-434a-a0ce-699c8825381c&lt;/PartitionId&gt;&lt;Type&gt;AUTO_QUIESCED&lt;/Type&gt;</Payload>
+  </Type>
+</NotificationPayloads>

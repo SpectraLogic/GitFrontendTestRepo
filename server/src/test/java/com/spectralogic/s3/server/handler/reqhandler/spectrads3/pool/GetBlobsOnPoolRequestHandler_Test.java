@@ -1,0 +1,54 @@
+/*******************************************************************************
+ *
+ * Copyright C 2015, Spectra Logic Corporation and/or its affiliates.  
+ * All rights reserved.
+ *
+ ******************************************************************************/
+package com.spectralogic.s3.server.handler.reqhandler.spectrads3.pool;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.spectralogic.s3.common.dao.domain.ds3.Blob;
+import com.spectralogic.s3.common.dao.domain.pool.Pool;
+import com.spectralogic.s3.common.testfrmwrk.MockDaoDriver;
+import com.spectralogic.s3.server.mock.MockHttpRequestDriver;
+import com.spectralogic.s3.server.mock.MockHttpRequestSupport;
+import com.spectralogic.s3.server.mock.MockInternalRequestAuthorizationStrategy;
+import com.spectralogic.s3.server.request.rest.RestDomainType;
+import com.spectralogic.s3.server.request.rest.RestOperationType;
+import com.spectralogic.util.http.RequestType;
+
+public final class GetBlobsOnPoolRequestHandler_Test 
+{
+    @Test
+    public void testGetBlobsOnPoolReturnsOnlyThoseBlobsOnThatPool()
+    {
+        final MockHttpRequestSupport support = new MockHttpRequestSupport();
+        
+        final MockDaoDriver mockDaoDriver = new MockDaoDriver( support.getDatabaseSupport() );
+        final Pool t1 = mockDaoDriver.createPool();
+        final Pool t2 = mockDaoDriver.createPool();
+        final Blob b1 = mockDaoDriver.getBlobFor( mockDaoDriver.createObject( null, "o1" ).getId() );
+        final Blob b2 = mockDaoDriver.getBlobFor( mockDaoDriver.createObject( null, "o2" ).getId() );
+        final Blob b3 = mockDaoDriver.getBlobFor( mockDaoDriver.createObject( null, "o3" ).getId() );
+        mockDaoDriver.getBlobFor( mockDaoDriver.createObject( null, "o4" ).getId() );
+        mockDaoDriver.putBlobOnPool( t1.getId(), b1.getId() );
+        mockDaoDriver.putBlobOnPool( t1.getId(), b2.getId() );
+        mockDaoDriver.putBlobOnPool( t2.getId(), b3.getId() );
+        
+        final MockHttpRequestDriver driver = new MockHttpRequestDriver( 
+                support,
+                true,
+                new MockInternalRequestAuthorizationStrategy(),
+                RequestType.GET, 
+                "_rest_/" + RestDomainType.POOL.toString() + "/" + t1.getId().toString() )
+            .addParameter( "operation", RestOperationType.GET_PHYSICAL_PLACEMENT.toString() );
+        driver.run();
+        driver.assertHttpResponseCodeEquals( 200 );
+        driver.assertResponseToClientContains( "o1" );
+        driver.assertResponseToClientContains( "o2" );
+        driver.assertResponseToClientDoesNotContain( "o3" );
+        driver.assertResponseToClientDoesNotContain( "o4" );
+    }
+}

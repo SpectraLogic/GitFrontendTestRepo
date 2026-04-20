@@ -1,0 +1,7 @@
+adapter: postgresql
+encoding: utf8
+database: <%= ENV['TAPESYSTEM_DB_NAME'] || "tapesystem" %>
+pool: 20
+username: Administrator
+schema_search_path: ds3, framework, http, lang, notification, planner, public,
+                    security, tape

@@ -1,0 +1,66 @@
+apply plugin: 'application'
+
+
+repositories {
+    mavenCentral()
+    // Add this line to include the local libs directory
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    // --- START: Azure Storage SDK Dependencies ---
+    // The core Azure library required by all Azure SDKs
+    implementation 'com.azure:azure-core:1.52.0'
+    // The specific library for Azure Blob Storage (required for AzuriteStorageExplorer.java)
+    implementation 'com.azure:azure-storage-blob:12.28.1'
+    // --- END: Azure Storage SDK Dependencies ---
+    implementation ("com.fasterxml.jackson.core:jackson-annotations:$parent.jacksonVersion")
+    implementation ("com.fasterxml.jackson.core:jackson-core:$parent.jacksonVersion")
+    implementation ("com.fasterxml.jackson.core:jackson-databind:$parent.jacksonVersion")
+    implementation ("com.microsoft.azure:azure-keyvault-core:$parent.azureKeyvaultSdkVersion")
+    implementation ("com.azure:azure-core:1.45.1")
+    implementation ("com.microsoft.azure:azure-storage:$parent.azureSdkVersion")
+    implementation ("commons-logging:commons-logging:$parent.commonsLoggingVersion") {
+        transitive = false
+    }
+    implementation ("commons-codec:commons-codec:$parent.commonsCodecVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-core:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-beans:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-expression:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.json:json:$parent.jsonVersion") {
+        transitive = false
+    }
+    implementation ("com.google.guava:guava:$parent.guavaVersion") {
+        transitive = false
+    }
+    // Add this line to include the local JAR file
+    implementation name: 'ds3-sdk-5.4.1-all'
+    testImplementation platform('org.junit:junit-bom:5.10.0') // Ensure this is the latest stable version
+    testImplementation 'org.junit.platform:junit-platform-launcher:1.10.0'
+    // Explicitly add suite dependencies if the above isn't enough
+    testImplementation 'org.junit.platform:junit-platform-suite'
+    testRuntimeOnly 'org.junit.platform:junit-platform-suite-engine'
+    implementation ("software.amazon.awssdk:s3:$parent.s3SdkVersion")
+    implementation 'software.amazon.awssdk:s3-transfer-manager:2.24.13'
+    implementation 'software.amazon.awssdk:sdk-core:2.24.13'
+    implementation 'software.amazon.awssdk:transfer:2.24.13'
+    implementation 'software.amazon.awssdk:auth:2.24.13'
+    implementation 'software.amazon.awssdk:apache-client:2.24.13'
+    testImplementation 'org.awaitility:awaitility:4.3.0'
+
+}
+tasks.named('test') {
+    maxParallelForks = 1
+    def skipDockerIntegration = System.getenv('SKIP_DOCKER_INTEGRATION')
+    enabled = !(skipDockerIntegration != null && skipDockerIntegration.toLowerCase() == 'true')
+}

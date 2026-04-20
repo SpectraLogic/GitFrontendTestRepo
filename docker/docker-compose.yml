@@ -1,0 +1,164 @@
+services:
+  postgres:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-postgres
+    container_name: postgres
+    environment:
+      POSTGRES_DB: tapesystem
+      POSTGRES_USER: Administrator
+      POSTGRES_PASSWORD: dogfish
+      #POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--lc-collate=C"
+    ports:
+      - "5431:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "Administrator", "-d", "tapesystem"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+  dnsmasq:
+    image: strm/dnsmasq:latest  # confirmed to support arm64
+    container_name: dnsmasq
+    command:
+      - "--address=/.localstack/172.50.0.10"
+      - "--address=/.azurite/172.50.0.12"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      test-network:
+        ipv4_address: 172.50.0.53
+
+  tomcat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Tomcat
+    container_name: tomcat
+    ports:
+      - "8081:8080"
+      - "8444:8443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - CATALINA_OPTS=-Dhttps.protocols=TLSv1.2,TLSv1.3 -Dlog4j.configuration=file:/usr/local/tomcat/conf/log4j.xml
+      - RPCHOST=dataplanner
+    networks:
+      - test-network
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+
+
+  dataplanner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Dataplanner
+    container_name: dataplanner
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - TAPE_CLIENT=simulator
+      - POOL_CLIENT=simulator
+    networks:
+      - test-network
+    dns:
+      - 172.50.0.53
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+
+
+
+  simulator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Simulator
+    container_name: simulator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dataplanner:
+        condition: service_started
+    environment:
+      - DB_HOST=postgre
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+    networks:
+      - test-network
+    ports:
+      - "7071:7070"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+
+  localstack:
+    container_name: "localstack"
+    image: localstack/localstack:3.4.0
+    ports:
+      - "4566:4566"
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - HOSTNAME_EXTERNAL=localhost
+      - HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true
+      - DEBUG=1
+      - LAMBDA_EXECUTOR=docker
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN-}
+    networks:
+      test-network:
+        ipv4_address: 172.50.0.10
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: azurite
+    restart: always
+    environment:
+      AZURITE_ACCOUNTS: devstoreaccount1:Ss0sk4dZsuH0Cji92F1Ye2kuoEhv+mmYCLfLzGrdw0A1zQagbiBBbnHJNiALudX5nXXZkc4lxT0nFREbg8lpAQ==
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    networks:
+      test-network:
+        ipv4_address: 172.50.0.12
+
+
+volumes:
+  pgdata:
+  cacheFile:
+
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.50.0.0/16

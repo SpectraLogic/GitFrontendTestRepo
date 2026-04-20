@@ -1,0 +1,36 @@
+apply plugin: 'application'
+
+mainClassName = 'com.spectralogic.s3.dataplanner.DataPlanner'
+
+dependencies {
+    implementation "software.amazon.awssdk:s3:$parent.s3SdkVersion"
+    testImplementation 'software.amazon.awssdk:s3-transfer-manager:2.24.13'
+    testImplementation 'software.amazon.awssdk:sdk-core:2.24.13'
+    testImplementation 'software.amazon.awssdk:transfer:2.24.13'
+    testImplementation 'software.amazon.awssdk:auth:2.24.13'
+    testImplementation 'software.amazon.awssdk:apache-client:2.24.13'
+    implementation ("com.microsoft.azure:azure-keyvault-core:$parent.azureKeyvaultSdkVersion")
+    implementation ("com.azure:azure-core:1.45.1")
+
+    implementation ("commons-logging:commons-logging:$parent.commonsLoggingVersion") {
+        transitive = false
+    }
+    implementation ("commons-codec:commons-codec:$parent.commonsCodecVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-core:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-beans:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-expression:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.json:json:$parent.jsonVersion") {
+        transitive = false
+    }
+    implementation ("com.google.guava:guava:$parent.guavaVersion") {
+        transitive = false
+    }
+}

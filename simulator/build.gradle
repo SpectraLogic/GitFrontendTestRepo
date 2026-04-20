@@ -1,0 +1,42 @@
+apply plugin: 'application'
+
+mainClassName = 'com.spectralogic.s3.simulator.Simulator'
+
+dependencies {
+    implementation 'io.javalin:javalin:6.1.3'
+
+    // Jetty 11 - required by Javalin 6
+    implementation 'org.eclipse.jetty:jetty-server:11.0.15'
+    implementation 'org.eclipse.jetty:jetty-servlet:11.0.15'
+    implementation 'org.eclipse.jetty:jetty-webapp:11.0.15'
+    implementation 'org.eclipse.jetty:jetty-http:11.0.15'
+    implementation 'org.eclipse.jetty:jetty-util:11.0.15'
+    implementation 'org.eclipse.jetty:jetty-io:11.0.15'
+
+    // Jakarta Servlet API (needed for servlet classes)
+    implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+
+    // Kotlin standard library
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
+    implementation("commons-logging:commons-logging:$commonsLoggingVersion") {
+        transitive = false
+    }
+    implementation("org.springframework:spring-core:$springVersion") {
+        transitive = false
+    }
+    implementation("org.springframework:spring-beans:$springVersion") {
+        transitive = false
+    }
+    implementation("org.springframework:spring-expression:$springVersion") {
+        transitive = false
+    }
+    implementation("org.json:json:$jsonVersion") {
+        transitive = false
+    }
+}
+
+task copyRuntimeLibs(type: Copy) {
+    println "Copying runtime libraries..."
+    from configurations.runtimeClasspath
+    into '/app/build/runtime-libs/'
+}

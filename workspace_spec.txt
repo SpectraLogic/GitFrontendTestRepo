@@ -1,0 +1,84 @@
+# A Perforce Client Specification.
+#
+#  Client:      The client name.
+#  Update:      The date this specification was last modified.
+#  Access:      The date this client was last used in any way.
+#  Owner:       The Perforce user name of the user who owns the client
+#               workspace. The default is the user who created the
+#               client workspace.
+#  Host:        If set, restricts access to the named host.
+#  Description: A short description of the client (optional).
+#  Root:        The base directory of the client workspace.
+#  AltRoots:    Up to two alternate client workspace roots.
+#  Options:     Client options:
+#                      [no]allwrite [no]clobber [no]compress
+#                      [un]locked [no]modtime [no]rmdir
+#  SubmitOptions:
+#                      submitunchanged/submitunchanged+reopen
+#                      revertunchanged/revertunchanged+reopen
+#                      leaveunchanged/leaveunchanged+reopen
+#  LineEnd:     Text file line endings on client: local/unix/mac/win/share.
+#  Type:        Type of client: writeable/readonly.
+#  Backup:      Client's participation in backup enable/disable. If not
+#               specified backup of a writable client defaults to enabled.
+#  ServerID:    If set, restricts access to the named server.
+#  View:        Lines to map depot files into the client workspace.
+#  ChangeView:  Lines to restrict depot files to specific changelists.
+#  Stream:      The stream to which this client's view will be dedicated.
+#               (Files in stream paths can be submitted only by dedicated
+#               stream clients.) When this optional field is set, the
+#               View field will be automatically replaced by a stream
+#               view as the client spec is saved.
+#  StreamAtChange:  A changelist number that sets a back-in-time view of a
+#                   stream ( Stream field is required ).
+#                   Changes cannot be submitted when this field is set.
+#
+# Use 'p4 help client' to see more about client views and options.
+
+Client:	ashap.devRepo
+
+Update:	2025/05/14 10:02:32
+
+Access:	2025/06/17 09:15:07
+
+Owner:	ashap
+
+Host:
+
+Description:
+	Created by ashap.
+
+Root:	/Users/ashapillai/devRepo/redline
+
+Options:	noallwrite noclobber nocompress unlocked nomodtime normdir
+
+SubmitOptions:	submitunchanged
+
+LineEnd:	local
+
+Stream:	//redline/dev_ashap
+
+View:
+	//redline/dev_ashap/Rakefile //ashap.devRepo/Rakefile
+	//SpectraBSD/stable/... //ashap.devRepo/SpectraBSD/...
+	//redline/dev_ashap/SpectraBSD/spectra.rake //ashap.devRepo/SpectraBSD/spectra.rake
+	//SpectraBSD_ports/main/... //ashap.devRepo/ports/...
+	//redline/dev_ashap/ports/cached_distfiles/spectra/... //ashap.devRepo/ports/cached_distfiles/spectra/...
+	//redline/dev_ashap/ports/spectra/... //ashap.devRepo/ports/spectra/...
+	//redline/dev_ashap/product/... //ashap.devRepo/product/...
+	//redline/dev_ashap/rubygems/... //ashap.devRepo/rubygems/...
+	//depot/shared/tools/fio_rb/... //ashap.devRepo/rubygems/fio_rb/...
+	//depot/vendor/github/SpectraLogic/tape-software/main/Common/Source/KeyGenVerify.cpp //ashap.devRepo/rubygems/key_verify/ext/KeyGenVerify.cpp
+	//depot/vendor/github/SpectraLogic/tape-software/main/Common/Include/KeyGenVerify.h //ashap.devRepo/rubygems/key_verify/ext/KeyGenVerify.h
+	//depot/vendor/github/SpectraLogic/tape-software/main/Common/Include/KeyGen_TypesAndOptions.h //ashap.devRepo/rubygems/key_verify/ext/KeyGen_TypesAndOptions.h
+	//depot/vendor/github/SpectraLogic/ds3_c_sdk/master/... //ashap.devRepo/shared/ds3_c_sdk/...
+	//depot/vendor/github/SpectraLogic/ds3_ruby_sdk/master/... //ashap.devRepo/shared/ds3_ruby_sdk/...
+	//depot/shared/tools/sedutil/... //ashap.devRepo/shared/sedutil/...
+	//redline/dev_ashap/shared/spectra_view/... //ashap.devRepo/shared/spectra_view/...
+	//redline/dev_ashap/spectra_build.rb //ashap.devRepo/spectra_build.rb
+	//redline/dev_ashap/tools/... //ashap.devRepo/tools/...
+	//depot/shared/tools/Broadcom/... //ashap.devRepo/tools/manufacturing/Broadcom/...
+
+ChangeView:
+	//depot/vendor/github/SpectraLogic/ds3_c_sdk/master/...@1701306
+

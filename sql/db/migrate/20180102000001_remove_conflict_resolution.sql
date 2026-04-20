@@ -1,0 +1,6 @@
+ALTER TABLE ds3.data_path_backend DROP COLUMN default_import_conflict_resolution_mode;
+ALTER TABLE pool.import_pool_directive DROP COLUMN conflict_resolution_mode;
+ALTER TABLE target.import_azure_target_directive DROP COLUMN conflict_resolution_mode;
+ALTER TABLE target.import_s3_target_directive DROP COLUMN conflict_resolution_mode;
+ALTER TABLE tape.raw_import_tape_directive DROP COLUMN conflict_resolution_mode;
+ALTER TABLE tape.import_tape_directive DROP COLUMN conflict_resolution_mode;

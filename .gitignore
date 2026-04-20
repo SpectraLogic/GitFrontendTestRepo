@@ -1,0 +1,15 @@
+# Ignore Gradle build directories in any subproject
+**/build/
+
+# Ignore Maven target directories in any subproject
+**/target/
+
+# Optional: Ignore IntelliJ and Eclipse metadata
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# macOS specific
+.DS_Store

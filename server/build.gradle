@@ -1,0 +1,46 @@
+apply plugin: "war"
+
+dependencies {
+    implementation ("commons-io:commons-io:$parent.commonsIoVersion") {
+        transitive = false
+    }
+    implementation ("commons-logging:commons-logging:$parent.commonsLoggingVersion") {
+        transitive = false
+    }
+    implementation ("commons-codec:commons-codec:$parent.commonsCodecVersion") {
+        transitive = false
+    }
+    implementation ("javax.servlet.jsp:jsp-api:$parent.jspApiVersion") {
+        transitive = false
+    }
+    implementation ("javax.servlet:javax.servlet-api:$parent.servletVersion") {
+        transitive = false
+    }
+    implementation ("org.apache.commons:commons-lang3:$parent.commonsLangVersion") {
+        transitive = false
+    }
+    implementation ("org.apache.commons:commons-math3:$parent.commonsMathVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-core:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-beans:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-expression:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-web:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-webmvc:$parent.springVersion") {
+        transitive = false
+    }
+    implementation ("org.json:json:$parent.jsonVersion") {
+        transitive = false
+    }
+    implementation ("org.postgresql:postgresql:$parent.postgresqlVersion") {
+        transitive = false
+    }
+}

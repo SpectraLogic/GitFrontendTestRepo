@@ -1,0 +1,32 @@
+services:
+  postgres:
+    build:
+      context: ..
+      dockerfile: docker-ci/Dockerfile-postgres
+    container_name: postgres
+    environment:
+      POSTGRES_DB: tapesystem
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ''
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--lc-collate=C"
+    ports:
+      - "5422:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "template0"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+
+
+
+volumes:
+  ./postgres-data:
+
+
+
+
+

@@ -1,0 +1,29 @@
+if( blah
+if (blah )
+while( blah
+( int )  ( float ) ( long )
+a+b*c/d=e
+catch( final Exception ex )
+{           any non space
+bufferConstructor.setAccessible(  true );
+aa?bb:cc
+dd? ee: ff
+gg ?hh :ii
+catch ( Exception ex )
+")
+"}
+"]
+')
+'}
+']
+("
+{"
+["
+('
+{'
+[''
+   three white spaces
+       seven white spaces
+         nine white spaces
+111charactersxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxZ111chars
+    * four spaces followed by an asterisk should fail because comments indent middle line by an extra 1

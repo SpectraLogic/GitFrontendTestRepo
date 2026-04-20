@@ -1,0 +1,9 @@
+if ( blah if ( blah ) while ( blah
+(int)  (float) (long) (Checksum)
+a + b * c / d = e
+catch ( final Exception ex )
+{                
+}
+xxx ? ddddd : fffff
+catch ( final Exception ex )
+" ) " } " ] aaa ' ) ' } ' ] bbb ( " { " [ " ccc ( ' { ' [ '

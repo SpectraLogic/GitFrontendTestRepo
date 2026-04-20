@@ -1,0 +1,35 @@
+//include 'common', 'DataPlanner', 'server', 'simulator', 'target', 'util','integrationtests'
+def skipIntegration = System.getenv("SKIP_DOCKER_INTEGRATION") == "true"
+
+include 'common', 'DataPlanner', 'server', 'simulator', 'target', 'util'
+
+if (!skipIntegration) {
+    include 'integrationtests'
+} else {
+    println "Skipping integrationtests module due to SKIP_INTEGRATION=true"
+}
+rootProject.name = 'SpectraBlueStorm'
+
+println "Cornerstone properties reported by the JVM running Gradle:"
+//NOTE: the non-essential lines below lines ran into issues when upgrading from Java 8 to 17 and so have been removed for now.
+/*InetAddress ip = InetAddress.getLocalHost()
+println "    Host: " + ip.getHostName() + " " + ip.getAddress()*/
+println "    os.verson: " + System.getProperty( "os.version" );
+println "    os.arch: " + System.getProperty( "os.arch" );
+println "    java.specification.vendor: " + System.getProperty( "java.vm.specification.vendor" )
+println "    java.specification.version: " + System.getProperty( "java.specification.version" )
+println "    java.runtime.version: " + System.getProperty( "java.runtime.version" )
+println "    java.version: " + System.getProperty( "java.version" )
+println "    java.vm.name: " + System.getProperty( "java.vm.name" )
+println "    java.class.version: " + System.getProperty( "java.class.version" )
+println "    java.library.path: " + System.getProperty( "java.library.path" )
+println "    sun.io.unicode.encoding: " + System.getProperty( "sun.io.unicode.encoding" )
+println "    file.encoding.pkg: " + System.getProperty( "file.encoding.pkg" )
+println "    sun.jnu.encoding: " + System.getProperty( "sun.jnu.encoding" )
+println "    file.encoding: " + System.getProperty( "file.encoding" )
+println "    java.home: " + System.getProperty( "java.home" )
+println "    java.io.tmpdir: " + System.getProperty( "java.io.tmpdir" )
+println "    java.class.path: " + System.getProperty( "java.class.path" )
+println "    user.dir: " + System.getProperty( "user.dir" )
+println "    user.name: " + System.getProperty( "user.name" )
+println ""

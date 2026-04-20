@@ -1,0 +1,301 @@
+services:
+  ntp:
+    image: cturra/ntp
+    container_name: ntp
+    restart: always
+    ports:
+      - "123:123/udp"
+    networks:
+      - test-network2
+      - test-network3
+  postgres:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-postgres
+    container_name: postgres
+    environment:
+      POSTGRES_DB: tapesystem
+      POSTGRES_USER: Administrator
+      POSTGRES_PASSWORD: dogfish
+      #POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--lc-collate=C"
+    ports:
+      - "5431:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "Administrator", "-d", "tapesystem" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network2
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+  postgresreplica:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-postgres
+    container_name: postgresreplica
+    environment:
+      POSTGRES_DB: tapesystem
+      POSTGRES_USER: Administrator
+      POSTGRES_PASSWORD: dogfish
+      #POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--lc-collate=C"
+    ports:
+      - "5533:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "Administrator", "-d", "tapesystem" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network3
+    volumes:
+      - pgdata_test:/var/lib/postgresql
+
+  dnsmasq:
+    image: strm/dnsmasq:latest  # confirmed to support arm64
+    container_name: dnsmasq
+    command:
+      - "--address=/.localstack/172.50.0.10"
+      - "--address=/.azurite/172.50.0.12"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      test-network2:
+        ipv4_address: 172.50.0.43
+      test-network3: # Secondary DNS IP
+        ipv4_address: 172.51.0.43
+
+  tomcat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Tomcat
+    container_name: tomcat
+    ports:
+      - "8081:8080"
+      - "8444:8443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - CATALINA_OPTS=-Dhttps.protocols=TLSv1.2,TLSv1.3 -Dlog4j.configuration=file:/usr/local/tomcat/conf/log4j.xml
+      - RPCHOST=dataplanner
+    networks:
+      - test-network2
+      - test-network3
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
+
+  tomcatreplica:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-replica-Tomcat
+    container_name: tomcatreplica
+    ports:
+      - "8082:8080"  # HTTP: Host 8082 -> Container 8080 (Unique Port)
+      - "8445:8443"  # HTTPS: Host 8445 -> Container 8443 (Unique Port)
+    depends_on:
+      postgresreplica: # Depends on the test DB
+        condition: service_healthy
+    environment:
+      # Update DB_NAME to connect to the test database
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - CATALINA_OPTS=-Dhttps.protocols=TLSv1.2,TLSv1.3 -Dlog4j.configuration=file:/usr/local/tomcat/conf/log4j.xml
+      - RPCHOST=dataplannerreplica
+    networks:
+      - test-network3
+    # Ensure volumes/caches are unique if Tomcat modifies them
+    volumes:
+      - pgdata_test:/var/lib/postgresql
+      - cacheFile_secondary:/tmp/cache
+
+  dataplanner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Dataplanner
+    container_name: dataplanner
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+      azurite:
+        condition: service_started
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - TAPE_CLIENT=simulator
+      - POOL_CLIENT=simulator
+    networks:
+      - test-network2
+      - test-network3
+    dns:
+      - 172.50.0.43
+      - 8.8.8.8
+    dns_opt:
+      - use-vc
+    volumes:
+      - pgdata_test:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
+
+  dataplannerreplica:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-replica-Dataplanner
+    container_name: dataplannerreplica
+    depends_on:
+      postgresreplica:
+        condition: service_healthy
+      localstack: # Retained existing dependency
+        condition: service_started
+      azurite: # Retained existing dependency
+        condition: service_started
+    environment:
+      - DB_HOST=postgresreplica # Explicitly point to the test DB service
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - TAPE_CLIENT=simulatorreplica
+      - POOL_CLIENT=simulatorreplica
+    networks:
+      - test-network3
+      - test-network2
+    dns:
+      - 172.51.0.43
+      - 8.8.8.8
+
+    # Use unique volumes for this instance
+    volumes:
+      - pgdata_test:/var/lib/postgresql
+      - cacheFile_secondary:/tmp/cache
+
+  simulator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Simulator
+    container_name: simulator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dataplanner:
+        condition: service_started
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+    networks:
+      - test-network2
+      - test-network3
+    ports:
+      - "7071:7070"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
+
+  simulatorreplica:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Simulator
+    container_name: simulatorreplica
+    ports:
+      - "7072:7070" # Unique host port 7072
+    depends_on:
+      postgresreplica:
+        condition: service_healthy
+      dataplannerreplica: # Depends on the secondary dataplanner peer
+        condition: service_started
+    environment:
+      - DB_HOST=postgresreplica # Connect to test DB
+      - DB_PORT=5432
+      - DB_NAME=tapesystem
+      - DB_USER=Administrator
+      - DB_PASS=dogfish
+      - GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+    networks:
+      - test-network3
+      - test-network2
+    # Use unique volumes for this instance
+    volumes:
+      - pgdata_test:/var/lib/postgresql
+      - cacheFile_secondary:/tmp/cache
+
+  localstack:
+    container_name: "localstack"
+    image: localstack/localstack:3.4.0
+    ports:
+      - "4566:4566"
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - HOSTNAME_EXTERNAL=localhost
+      - HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true
+      - DEBUG=1
+      - LAMBDA_EXECUTOR=docker
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN-}
+    networks:
+      test-network2:
+        ipv4_address: 172.50.0.10
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: azurite
+    restart: always
+    environment:
+      AZURITE_ACCOUNTS: devstoreaccount1:Ss0sk4dZsuH0Cji92F1Ye2kuoEhv+mmYCLfLzGrdw0A1zQagbiBBbnHJNiALudX5nXXZkc4lxT0nFREbg8lpAQ==
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    networks:
+      test-network2:
+        ipv4_address: 172.50.0.12
+      test-network3: # Secondary IP
+        ipv4_address: 172.51.0.12
+
+
+volumes:
+  pgdata:
+  cacheFile:
+  pgdata_test:
+  cacheFile_secondary:
+  pools_config:
+
+networks:
+  test-network2:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.50.0.0/16
+    # Secondary/Test Stack Network
+  test-network3:
+      driver: bridge
+      ipam:
+        config:
+          - subnet: 172.51.0.0/16

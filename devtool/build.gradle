@@ -1,0 +1,47 @@
+dependencies {
+    implementation ("fast-md5:fast-md5:$parent.fastMd5Version") {
+            transitive = false
+    }
+    implementation ("commons-codec:commons-codec:$parent.commonsCodecVersion") {
+        transitive = false
+    }
+    implementation ("commons-lang:commons-lang:$parent.commonsLangVersion") {
+        transitive = false
+    }
+    implementation ("io.netty:netty-all:$parent.nettyVersion") {
+        transitive = false
+    }
+    implementation ("javax.servlet:javax.servlet-api:$parent.servletVersion") {
+        transitive = false
+    }
+    implementation ("net.java.dev.jna:jna-platform:$parent.jnaVersion") {
+        transitive = false
+    }
+    implementation ("net.java.dev.jna:jna:$parent.jnaVersion") {
+        transitive = false
+    }
+    implementation ("commons-io:commons-io:$parent.commonsIoVersion") {
+        transitive = false
+    }
+    implementation ("org.json:json:$parent.jsonVersion") {
+        transitive = false
+    }
+    implementation ("org.postgresql:postgresql:$parent.postgresqlVersion") {
+        transitive = false
+    }
+    implementation ("org.quartz-scheduler:quartz:$parent.quartzVersion") {
+        transitive = false
+    }
+    implementation ("org.quartz-scheduler:quartz-jobs:$parent.quartzVersion") {
+        transitive = false
+    }
+    implementation ("org.slf4j:slf4j-api:$parent.slfjVersion") {
+        transitive = false
+    }
+    implementation ("org.slf4j:slf4j-log4j12:$parent.slfjVersion") {
+        transitive = false
+    }
+    implementation ("org.springframework:spring-jdbc:$parent.springVersion") {
+        transitive = false
+    }
+}

@@ -1,0 +1,56 @@
+# Use an official Ruby runtime as a parent image
+FROM ruby:3.2
+RUN apt-get update && apt-get install -y postgresql-client
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the current directory contents into the container at /usr/src/app
+COPY product/frontend/compare_databases.rb /app/compare_databases.rb
+COPY product/frontend/common/build/libs/dao.sql /app/dao.sql
+ADD product/frontend/sql/ /app/
+COPY product/gui/config/application.rb /app/
+COPY rubygems/spectra_support /app/spectra_support
+COPY product/frontend/dbmigrationtest/spectra_support.gemspec /app/spectra_support
+RUN ln -s /usr/bin/psql /usr/local/bin/psql
+RUN echo "require 'logger'" >> /tmp/new_line.rb
+
+
+
+# Concatenate the new line with the original file and save it
+RUN cat /tmp/new_line.rb /app/Rakefile > /tmp/temp_app.rb && \
+    mv /tmp/temp_app.rb /app/Rakefile
+
+
+# Create Gemfile for proper dependency management
+COPY <<EOF /app/Gemfile
+source 'https://rubygems.org'
+ruby '3.2.10'
+
+
+gem 'rails', '~> 6.1.4'
+gem 'jquery-rails'
+
+gem 'sass-rails', '~> 6.0'
+gem 'ejs'
+gem 'uglifier', '>= 1.3.0'
+
+gem 'activerecord', '~> 6.1.4' # Use 7.0 instead of 8.x for better compatibility
+gem 'pg', '~> 1.1'
+gem 'rake'
+gem 'yaml'
+gem 'spectra_support', path: '/app/spectra_support'
+EOF
+
+RUN touch Gemfile.lock
+RUN bundle install
+
+# Install any dependencies specified in a Gemfile (if you have one)
+# This is an optional step. Uncomment if needed.
+# RUN bundle install
+ENV TAPESYSTEM_DB_NAME="test_migration"
+
+# If it is not run by testAll.sh, uncomment following line or use
+# command in testAll.sh --
+#  docker-compose -f docker-compose-testdb.yml run databasetest ruby compare_databases.rb dao.sql Rakefile
+#CMD bundle exec ruby compare_databases.rb dao.sql Rakefile; tail -f /dev/null
+CMD ["/bin/bash"]

@@ -1,0 +1,446 @@
+//NOTE: Upgrade of this file for gradle 8.1.1 is not complete as of May 22 2023, and so its use is being removed from testAll.sh
+import static groovy.io.FileType.FILES
+import static groovy.io.FileType.DIRECTORIES
+
+
+buildscript
+        {
+            dependencies
+                    {
+                        // This only adds AspectJ jars to the classpath of the JVM that runs
+                        // Gradle tasks. It does not add them to classpaths created/managed by
+                        // Gradle tasks. A possibly subtle but nonetheless essential difference.
+                        classpath fileTree( dir: ".." + File.separator + "lib-testonly" ,
+                                include: "*aspectj*.jar" )
+                    }
+        }
+
+
+apply plugin: FrontendAspectJTools
+
+
+// Possibly temporary locataion of SL Frontend Gradle AspectJ plugin. See first
+// section of https://docs.gradle.org/current/userguide/custom_plugins.html
+// for alternative locations. This AspectjToos.gradle file is a variation on
+// the suggestion to define a plugin directly in a project's build.gradle file.
+// Needed to move it to its own file because in some build envs, if aspects are
+// not enabled, it fails to compile (breaking the build) if it's defined
+// directly in Frontend's root build.gradle file.
+
+// Changing a logger.info call to logger.warn turns on just that log line, thus
+// avoiding lot of output you're not interested in that you'd get by placing the
+// entire Gralde run into INFO mode.
+
+
+/** The AspectJ tool can compile both application (or test) code AND aspects
+ *  into class files, AND then weave the aspects into the app/test classes, all
+ *  in one step. But this approach, for possibly a few different reasons working
+ *  together, is much slower than the two step approach implemented by this
+ *  plugin, which in total results in three steps:
+ *
+ *  (1) Compile application (main) or test classes using the project's Java
+ *      compiler (completed immediatly before this plugin runs).
+ *
+ *  (2) Compile just the Aspects using the AspectJ compiler.
+ *
+ *  (3) Weave the aspect classes into the main/test classes using the AspectJ
+ *      weaver.
+ *
+ *  This approach is ~80% faster than than the "one step" implemented by
+ *
+ *     https://github.com/eveoh/gradle-aspectj/
+ *
+ *  which this plugin replaces as the AspectJ tool in the Frontend Gradle build.
+ *
+ *  We prefix "Frontend" to plugin's name until it's changed to no longer be
+ *  Frontend aware. Note: Moving this plugin to another location and making it
+ *  independent of Frontend are independent changes--they don't need to be done
+ *  together.
+ *
+ *  To make this plugin independent of Frontend, see, for exmaple,
+ *  https://github.com/eveoh/gradle-aspectj/src/main/groovy/aspectj/*.groovy.
+ *  But don't take it too seriously--use it as an example of some very basic
+ *  Gradle plugin lifecycle elements to add that this Frontend-dedicated plugin
+ *  assumes, but that a general version of it cannot. Hesitate to use it as an
+ *  example of quality Gradle plugin design, or as the best approach for
+ *  intefacing with AspectJ tools from within a JVM.
+ *
+ *  Changing a logger.info call to logger.warn turns on just that log call,
+ *  thus avoiding a lot of output you're not interested in that you'd get by
+ *  placing the entire Gralde run into INFO mode.
+ *
+ *  Useful docs:
+ *  https://docs.gradle.org/current/userguide/custom_plugins.html
+ *  http://www.eclipse.org/aspectj/doc/released/devguide/ajc-ref.html
+ *
+ *  https://docs.gradle.org/current/dsl/org.gradle.api.Task.html
+ *  https://docs.gradle.org/current/userguide/more_about_tasks.html
+ *  https://docs.gradle.org/current/dsl/org.gradle.api.tasks.Copy.html
+ *  https://docs.gradle.org/current/userguide/tutorial_using_tasks.html
+ *
+ *  https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/SourceSet.html
+ *  https://docs.gradle.org/current/javadoc/org/gradle/api/file/FileCollection.html
+ */
+class FrontendAspectJTools implements Plugin<Project>
+{
+
+    void apply( Project project )
+    {
+        /** xlint: Given the way this plugin compiles and weaves aspects, you
+         *         can ignore all messages from the AspectJ COMPILER saying
+         *         "aspect was not applied", because NO weaving ("applying")
+         *         takes place when compiling aspects. Additionally, messages
+         *         like this from the WEAVER are also not an immediate cause for
+         *         concern, because for some sub-projects there will be aspects
+         *         for which none of their pointcuts are found in the
+         *         sub-project's code (main or test, perhaps both). I.E. When
+         *         you get this message from the AspectJ WEAVER, the first thing
+         *         to do is to see if it "makes senses" that the indicated
+         *         aspect was not applied to the particular code being weaved.
+         *         For example, getting this message about the "test method"
+         *         before() or after() aspects when weaving main (non-test) code
+         *         makes sense. In fact, if this message is not issued by the
+         *         WEAVER when weaving main code, that's more likely a concern.
+         */
+        project.ext.xlint = "warning"                 // ignore, warning, error
+
+        for ( srcSet in project.sourceSets )
+        {
+            if ( ! ( "test".equals( srcSet.name ) ||
+                    "main".equals( srcSet.name ) ) )
+                break       // Need aspects only for 'test' and 'main' classes.
+
+            // It is a bad thing to weave (inject) aspects into a class that's
+            // already had aspects woven into it. Attempting to use Gradle's
+            // built-in UP-TO-DATE semantics given the way we're compling and
+            // then weaving aspects (i.e. separately) into main and test classes
+            // can lead to contexts in which main or test classes will have
+            // aspects woven into them twice. Therefore, to avoid any possiblity
+            // of this ever happening we implement a very simple UP-TO-DATE
+            // policy: If AspectJ is enabled for a Gradle build, all Java
+            // classes are declared not UP-TO-DATE, and thus will be recompiled:
+            ( "test".equals( srcSet.name ) ?
+                    project.tasks["compileJava"].outputs.upToDateWhen { false } :
+                    project.tasks["compileTestJava"].outputs.upToDateWhen { false } )
+
+
+            /*----- Create task that compiles only AspectJ source files. -----*/
+
+            String acTask = ( srcSet.name.equals( "test" ) ?
+                    "testAspectCompile" : "aspectCompile" )
+
+            project.tasks.create( name: acTask,
+                    description:
+                            "Compiles aspects required by " + srcSet.name + " class files.",
+                    type: AspectsCompiler )
+                    {
+                        sourceSet = srcSet
+
+                        // Many instances of this task are created during a Gradle run's
+                        // init stage that will never execute, especially when running a
+                        // task/action on only some sub-projects. Even if an instance of
+                        // this task does run, it will short circuit very early if its
+                        // sub-project's main or test src folders do not contain any
+                        // AspectJ (.aj) src files, meaning effectively, it does not run.
+                        // Also, for reasons stated in a comment just above, we're not
+                        // using the standard Gradle UP-TO-DATE mechanism. Collectively,
+                        // these mean that to configure this Task instance's input and
+                        // out dirs here (where it traditionally happens), in many
+                        // cases, would be a waste of time/CPU cycles. Instead we define
+                        // them at the point of need, and only if actually needed.
+                    }
+
+            project.tasks[acTask].dependsOn( srcSet.name.equals( "test" ) ?
+                    "testClasses" : "classes" )
+
+
+            /* Create task that weaves aspect classes into app or test classes. */
+
+            String awTask = ( srcSet.name.equals( "test" ) ?
+                    "testAspectWeave" : "aspectWeave"  )
+
+            project.tasks.create( name: awTask, description:
+                    "Weaves aspect classes into ${srcSet.name} class files.",
+                    type: AspectsWeaver )
+                    {
+                        sourceSet = srcSet
+
+                        // See comment in above task creation on why
+                        // we don't set any path properties here.
+                    }
+
+            project.tasks[awTask].dependsOn( awTask.contains( "test" ) ?
+                    "testAspectCompile" : "aspectCompile" )
+
+
+            /* Create task that copies woven app or test classes to classes dir. */
+
+            String copyTask = ( srcSet.name.equals( "test" ) ?
+                    "testWovenCopy" : "wovenCopy" )
+
+            project.tasks.create( name: copyTask, description:
+                    "Copies woven ${srcSet.name} class files to 'classes' dir.",
+                    type: Copy )
+                    {
+                        // Copy the aspect classes of this sub-project into its classes
+                        // dir to get them into the sub-project's jar and/or onto its
+                        // test run classpath:
+                        from( AspectsCompiler.aspectsDir(
+                                srcSet.output.classesDir.absolutePath, srcSet.name ) )
+
+                        // Copy the main or test class files that have been woven back
+                        // into the classes dir:
+                        from( AspectsWeaver.wovenDir(
+                                srcSet.output.classesDir.absolutePath, srcSet.name ) )
+
+                        into srcSet.output.classesDir.absolutePath
+                    }
+
+            project.tasks[copyTask].dependsOn( copyTask.contains( "test" ) ?
+                    "testAspectWeave" : "aspectWeave" )
+            if ( srcSet.name.equals( "main" ) )
+            {
+                // Jar task should jar up main classes that have been woven
+                // with aspects:
+                project.tasks["jar"].dependsOn( copyTask )
+
+                // Make sure the main classes dir contains main class files that
+                // have been woven with aspects before compiling test code:
+                project.tasks["compileTestJava"].dependsOn( copyTask )
+            }
+
+            // For both main and test, no matter how tasks are passed in on the
+            // Gradle command line, and whether or not a sub-project has/runs
+            // the 'jar' task, make sure the copy of main and test apsect-woven
+            // classes into thier 'classes' dir happens before the 'test' task:
+            project.tasks["test"].dependsOn( copyTask )
+
+        }  // for( project.sourceSets )
+    }      // void apply
+
+
+    /**
+     *  http://www.eclipse.org/aspectj/doc/released/devguide/ajc-ref.html
+     *
+     *  Not the AspectJ version we use, but close enough to be very useful:
+     *  http://grepcode.com/file/repo1.maven.org/maven2/org.aspectj/\
+     *                       aspectjtools/1.7.3/org/aspectj/tools/ajc/Main.java
+     */
+    final static sharedAspectJMainArgs( Project prjct, SourceSet srcSet )
+    {
+        def ajcMainArgs = []
+
+        ajcMainArgs << "-Xlint:" + prjct.xlint          // AJC "logging" level.
+
+        ajcMainArgs << "-XnotReweavable"  // Don't spend any CPU cycles setting
+        // any code up to be re-weavable,
+        // since we've configed UP-TO-DATE to
+        // never let this happen.
+
+        ajcMainArgs << "-source"           // JVM version of AspectJ src files.
+
+        ajcMainArgs << prjct.convention.plugins.java.sourceCompatibility.toString()
+
+        ajcMainArgs << "-target"       // JVM version of class files to create.
+
+        ajcMainArgs << prjct.convention.plugins.java.targetCompatibility.toString()
+
+        ajcMainArgs << "-cp"            // Classpath used by the AspectJ tools.
+
+        ajcMainArgs << prjct.parent.fileTree( dir: "lib-testonly",
+                include: "*aspectj*.jar" ).asPath + SEP +
+                srcSet.output.classesDir.absolutePath + SEP +
+                srcSet.compileClasspath.asPath.replace(
+                        RESOURCES, CLASSES_JAVA )
+        // The String.replace() call above "removes" a dir from
+        // the classpath that we don't need, which stops the
+        // AspectJ compiler/wearver from printing an otherwise
+        // unsuppressable error message to the console.
+
+        return ajcMainArgs
+    }
+
+
+    private final static String SEP = System.getProperty( "path.separator" )
+    private final static String RESOURCES =
+            File.separator + "resources" + File.separator
+    private final static String CLASSES_JAVA =
+            File.separator +  "classes"  + File.separator + "java" + File.separator
+
+} // class
+
+
+/** Compiles only AspectJ source files (*.aj) into JVM class files.
+ */
+class AspectsCompiler extends DefaultTask
+{
+    AspectsCompiler()
+    {
+        logging.captureStandardOutput( LogLevel.INFO )
+    }
+
+
+    @TaskAction
+    def compile()
+    {
+        def aspectjSrcFiles = []
+        sourceSet.java.srcDirs.each
+                {
+                    new File( it.absolutePath ).eachFileRecurse( FILES )
+                            {
+                                if ( it.name.endsWith( ".aj" ) )
+                                    aspectjSrcFiles << it.absolutePath
+                            }
+                }
+
+        if ( aspectjSrcFiles.isEmpty() )
+        {
+            logger.info(
+                    "    ${project.name} ${sourceSet.name} contains no AspectJ src files." )
+            return
+        }
+
+        def ajcMainArgs = FrontendAspectJTools.sharedAspectJMainArgs(
+                project, sourceSet )
+
+        ajcMainArgs << "-d"           // Dir in which to save compiled aspects.
+
+        // Placing aspect classes in thier own dedicated base dir(s) speeds up
+        // the weave step by ensuring that every file on "-aspectpath" is always
+        // an aspect class file. I.E. During the AspectJ weaver tool's init
+        // phase, it finds very few files on "-aspectpath", and every one it
+        // does find is an aspect class.
+
+        ajcMainArgs << aspectsDir( sourceSet.output.classesDir.absolutePath,
+                sourceSet.name )
+
+        String[] args =
+                (String[])(ajcMainArgs.toArray() + aspectjSrcFiles.toArray())
+
+        logger.info( "    AspectJ COMPILE main() args: " + args )
+
+        // This Gradle AspectJ plugin was coded for speed, therefore we do not
+        // access the compiler or weaver through the AspectJ Ant task, nor do
+        // we run either of them in another JVM. Instead, we use AspectJ classes
+        // directly, and we run them in the base Gradle JVM.
+
+        def cmplr = new org.aspectj.tools.ajc.Main()
+        def msgHldr = new org.aspectj.bridge.MessageHandler()
+        cmplr.run( args, msgHldr )
+        if( msgHldr.hasAnyMessage( org.aspectj.bridge.IMessage.ERROR, true ) )
+        {
+            logger.error( msgHldr.toString() )
+
+            // To run BOTH the AspectJ compile and weave tasks run while using
+            // '-xlint:error', comment out the next line, else only the compile
+            // will complete. Do not comment out or delete it permanetly unless
+            // you want AspectJ errors when running under '-xlint:[ignore|warning]'
+            // to never fail the Gradle run (likely not a good thing).
+            throw new RuntimeException( "AspectJ COMPILE failed." )
+        }
+    }
+
+
+    SourceSet sourceSet
+
+
+    /** Place all of a sub-project's aspect classes in the same base dir (i.e.
+     *  place class apsects generated from *.aj files below both the main AND
+     *  test src dirs into the same 'aspects' dir. If at some point this causes
+     *  problems, then create distinct main and test aspect class base dirs.
+     */
+    static aspectsDir( String prjctClazzDir, String srcSetName )
+    {
+        String d = prjctClazzDir.replace(
+                FrontendAspectJTools.CLASSES_JAVA + srcSetName,
+                FrontendAspectJTools.CLASSES_JAVA + ASPECTS_DIR )
+        return d
+    }
+
+
+    private final static ASPECTS_DIR = "aspects"
+
+} // class
+
+
+/** Weaves AspectJ class files into main or test class files.
+ */
+class AspectsWeaver extends DefaultTask
+{
+    AspectsWeaver()
+    {
+        logging.captureStandardOutput( LogLevel.INFO )
+    }
+
+
+    @TaskAction
+    def weave()
+    {
+        String clazDir = sourceSet.output.classesDir.absolutePath
+        def weaveMainArgs = FrontendAspectJTools
+                .sharedAspectJMainArgs( project, sourceSet )
+
+        weaveMainArgs << "-d"        // Dir in which to save woven class files.
+        weaveMainArgs << wovenDir( clazDir, sourceSet.name )
+
+        weaveMainArgs << "-inpath"   // Base dir of main/test classes to weave.
+        weaveMainArgs << clazDir
+
+        weaveMainArgs << "-aspectpath"      // Base dir(s) of aspects to weave.
+        String aspectpath = ""
+
+        // If the sub-project has aspects, an 'aspects' dir will exist, add it:
+        new File( clazDir.replace(
+                FrontendAspectJTools.CLASSES_JAVA + "${sourceSet.name}", "" ) )
+                .eachFileRecurse( DIRECTORIES )
+                {
+                    if ( it.name.contains( AspectsCompiler.ASPECTS_DIR ) )
+                        aspectpath += it.absolutePath
+                }
+
+        // If the sub-project is not 'util', add util's main "global" aspects:
+        if ( ! "util".equals( project.name ) )
+        {
+            aspectpath += ":"
+            aspectpath += AspectsCompiler.aspectsDir( clazDir, sourceSet.name )
+                    .replace(
+                            File.separator + project.name + File.separator, UTIL )
+        }
+
+        weaveMainArgs << aspectpath
+
+        String[] args = (String[])weaveMainArgs.toArray()
+
+        logger.info( "    AspectJ WEAVE main() args: " + args )
+
+        // See comments at this same location within AspectsCompiler.
+
+        def wvr = new org.aspectj.tools.ajc.Main()
+        def msgHldr = new org.aspectj.bridge.MessageHandler()
+        wvr.run( args, msgHldr )
+        if( msgHldr.hasAnyMessage( org.aspectj.bridge.IMessage.ERROR, true ) )
+        {
+            logger.error( msgHldr.toString() )
+            throw new RuntimeException( "AspectJ WEAVE failed." )
+        }
+    }
+
+
+    static wovenDir( String prjctClazzDir, String srcSetName )
+    {
+        String d = prjctClazzDir.replace(
+                FrontendAspectJTools.CLASSES_JAVA + srcSetName,
+                WOVEN + srcSetName )
+        return d
+    }
+
+
+    SourceSet sourceSet
+
+
+    private final static String UTIL = File.separator + "util" + File.separator
+    private final static String WOVEN =
+            FrontendAspectJTools.CLASSES_JAVA + "woven" + File.separator
+
+} // class
+

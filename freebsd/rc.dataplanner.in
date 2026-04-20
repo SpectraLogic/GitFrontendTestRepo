@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# PROVIDE: dataplanner
+# REQUIRE: postgresql bluestorm_prep
+# BEFORE: tomcat9
+# KEYWORD: shutdown
+
+# Define these dataplanner_* variables in one of these files:
+#	/etc/rc.conf
+#	/etc/rc.conf.local
+#	/etc/rc.conf.d/bluestorm_prep
+#	/usr/local/etc/rc.conf.d/bluestorm_prep
+#
+# DO NOT CHANGE THE DEFAULT VALUES HERE
+
+dataplanner_enable=${dataplanner_enable:-"NO"}
+dataplanner_out_log=${dataplanner_out_log:-"/var/log/dataplanner-startup.log"}
+dataplanner_java_opts=${dataplanner_java_opts:-""}
+
+. /etc/rc.subr
+
+# read the tapesystem and dataplanner config file
+[ -r /etc/spectra/tapesystem ] && . /etc/spectra/tapesystem
+DATAPLANNER_HOME=${DATAPLANNER_HOME:-"/usr/local/bluestorm/frontend/dataplanner"}
+DATAPLANNER_FILE=${DATAPLANNER_FILE:-"DataPlanner"}
+DATAPLANNER_PATH=${DATAPLANNER_HOME}/bin/${DATAPLANNER_FILE}
+
+name="dataplanner"
+procname="*/java" # match any java binary that actually gets executed
+rcvar="dataplanner_enable"
+start_cmd="${name}_start"
+pidfile="/var/run/${name}.pid"
+required_files=${DATAPLANNER_PATH}
+
+dataplanner_start()
+{
+    fib=${dataplanner_fib:-0}
+	echo "Starting dataplanner on fib ${fib}."
+	/usr/sbin/daemon -p ${pidfile} setfib ${fib} sh -c \
+	    "env JAVA_OPTS='${dataplanner_java_opts}' PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin ${DATAPLANNER_PATH} >> ${dataplanner_out_log} 2>&1"
+}
+
+load_rc_config $name
+run_rc_command "$1"

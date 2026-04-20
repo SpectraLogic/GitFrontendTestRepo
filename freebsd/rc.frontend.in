@@ -1,0 +1,68 @@
+#!/bin/sh
+
+# PROVIDE: frontend
+# REQUIRE: tomcat9 pool_backend_worker
+# BEFORE:
+# KEYWORD:
+
+# This rc.d script doesn't actually start/stop the S3 frontend server (tomcatx0
+# does that).  The purpose of this rc.d script is to hold off boot until the
+# S3 frontend server is running.  This is necessary since tomcat being in a
+# running state does not guarantee that the Java app it is running has finished
+# starting up.  Thus, any service that requires the frontend being running
+# should REQUIRE this instead of tomcatx0.
+
+# Define these frontend_* variables in one of these files:
+#	/etc/rc.conf
+#	/etc/rc.conf.local
+#	/etc/rc.conf.d/frontend
+#	/usr/local/etc/rc.conf.d/frontend
+#
+# DO NOT CHANGE THE DEFAULT VALUES HERE
+#
+# frontend_enable="YES"
+
+frontend_enable=${frontend_enable-"NO"}
+
+. /etc/rc.subr
+
+name="frontend"
+rcvar="frontend_enable"
+start_cmd="frontend_start"
+stop_cmd="frontend_stop"
+
+frontend_start()
+{
+	hotpair_subr=/usr/local/etc/hotpair.subr
+	endpoint="localhost:8080/_REST_/request_handler"
+	http_code=0
+	timeout=20
+
+	. $hotpair_subr
+	if hotpair_service_ok $name
+	then
+                info "Waiting for S3 $name to start..."
+
+		while [ $http_code -eq 0 ] && [ $timeout -gt 0 ]; do
+			# TODO make a HEAD request (--head) if/when the S3 
+			# server supports it
+			#
+			http_code=$(/usr/local/bin/curl -o /dev/null --silent \
+			    	    --write-out '%{http_code}' $endpoint)
+			sleep 1
+			timeout=$((timeout - 1))
+		done
+
+		if [ $http_code -eq 0 ]; then
+			echo "Timed out waiting for S3 frontend to start"
+			exit 1
+		fi
+	fi
+}
+
+frontend_stop()
+{
+}
+
+load_rc_config $name
+run_rc_command "$1"

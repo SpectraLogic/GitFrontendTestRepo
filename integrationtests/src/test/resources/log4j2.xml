@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%p %d{MMM dd HH:mm:ss,SSS} [%t] | %m (%C{1}.%M:%L)%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- Logger for your package -->
+        <Logger name="com.spectralogic.integrations" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="com.spectralogic.ds3client" level="off" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <!-- Root logger -->
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

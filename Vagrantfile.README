@@ -1,0 +1,11 @@
+
+Vagrant file to create a VM capable of building the frontend java code.  The current directory (product/frontend) is
+rsyn'd to /vagrant on the VM.  Note you cannot run any scripts that try to use perfoce at this time, like
+generateServerDocs.sh
+
+Vagrant 101
+Check VM status: vagrant status
+Bring the VM up: vagrant up
+Log into the VM: vagrant ssh
+Copy code to VM: vagrant rsync
+Remove  the  VM: vagrant destroy

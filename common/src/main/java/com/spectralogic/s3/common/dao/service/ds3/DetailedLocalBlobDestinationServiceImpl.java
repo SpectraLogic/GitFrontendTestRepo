@@ -1,0 +1,19 @@
+/*******************************************************************************
+ *
+ * Copyright C 2015, Spectra Logic Corporation and/or its affiliates.  
+ * All rights reserved.
+ *
+ ******************************************************************************/
+package com.spectralogic.s3.common.dao.service.ds3;
+
+import com.spectralogic.s3.common.dao.domain.ds3.DetailedLocalBlobDestination;
+import com.spectralogic.util.db.service.BaseService;
+
+final class DetailedLocalBlobDestinationServiceImpl
+    extends BaseService<DetailedLocalBlobDestination> implements DetailedLocalBlobDestinationService
+{
+    DetailedLocalBlobDestinationServiceImpl()
+    {
+        super( DetailedLocalBlobDestination.class );
+    }
+}
