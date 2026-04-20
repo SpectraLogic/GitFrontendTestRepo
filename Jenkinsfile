@@ -19,6 +19,7 @@ pipeline {
         // Set to '.' because your repo starts at the frontend folder level
         PROJECT_ROOT = '.'
         BUILD_TARGET = defineBuildTarget()
+        PG_CONTAINER = "pg-${env.JOB_NAME}-${env.BUILD_NUMBER}".replaceAll('[^A-Za-z0-9_.-]', '-')
     }
 
     stages {
@@ -90,8 +91,37 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Start Database') {
+            steps {
+                sh '''
+                    # Remove any leftover container from a prior failed run
+                    docker rm -f "${PG_CONTAINER}" 2>/dev/null || true
 
+                    docker run -d \
+                        --name "${PG_CONTAINER}" \
+                        -e POSTGRES_USER=Administrator \
+                        -e POSTGRES_PASSWORD= \
+                        -e POSTGRES_HOST_AUTH_METHOD=trust \
+                        -e POSTGRES_INITDB_ARGS=--lc-collate=C \
+                        -p 5432:5432 \
+                        postgres:15
+
+                    echo "Waiting for Postgres to accept connections..."
+                    for i in $(seq 1 30); do
+                        if docker exec "${PG_CONTAINER}" pg_isready -U Administrator >/dev/null 2>&1; then
+                            echo "Postgres is ready."
+                            exit 0
+                        fi
+                        sleep 2
+                    done
+                    echo "Postgres failed to become ready in time."
+                    docker logs "${PG_CONTAINER}" || true
+                    exit 1
+                '''
+            }
+        }
+
+        stage('Test') {
            steps {
             dir("${env.PROJECT_ROOT}") {
                     sh '''
@@ -122,6 +152,10 @@ pipeline {
 
         failure {
             echo "Build failed. Not copying files."
+        }
+
+        always {
+            sh 'docker rm -f "${PG_CONTAINER}" 2>/dev/null || true'
         }
     }
 }
