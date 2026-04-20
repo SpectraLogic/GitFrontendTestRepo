@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -251,12 +252,19 @@ public final class DatabaseSupportFactory
         public void executeSql( final File sqlFile )
         {
             final Duration duration = new Duration();
-            final String[] generateDbCmd =
-                    { PSQL, "-U", s_postgresUser, "-d", m_dbName, "-f", sqlFile.getAbsolutePath()};
-            LOG.info( "Executing sql file: " + Arrays.toString(generateDbCmd) );
-            execAndWaitFor( 
-                    generateDbCmd, 
-                    120000 );
+            LOG.info( "Executing sql file: " + sqlFile.getAbsolutePath() );
+            final String url = "jdbc:postgresql://localhost/" + m_dbName;
+            try ( Connection conn = DriverManager.getConnection( url, s_postgresUser, "" );
+                  Statement stmt = conn.createStatement() )
+            {
+                final String sql = Files.readString( sqlFile.toPath() );
+                stmt.execute( sql );
+            }
+            catch ( final IOException | SQLException ex )
+            {
+                throw new RuntimeException( "Failed to execute SQL file "
+                        + sqlFile.getAbsolutePath(), ex );
+            }
             LOG.info( "Executed sql file in " + duration + "." );
         }
         
