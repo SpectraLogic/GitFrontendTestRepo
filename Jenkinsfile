@@ -25,21 +25,11 @@ pipeline {
         stage('Environment Info') {
             steps {
                 sh '''
-                    echo "Git LFS version:"
-                    git lfs version
                     echo "Java version:"
                     java -version
                     echo "Docker version:"
-                    docker --version
+                    docker --version || echo "Docker not installed"
                 '''
-            }
-        }
-
-        stage('Checkout') {
-            steps {
-                 checkout scm
-                // Jenkins handles checkout automatically, just pull LFS files
-                sh 'git lfs pull'
             }
         }
         stage('Pre-build Debug') {
