@@ -104,7 +104,7 @@ pipeline {
                         -e POSTGRES_HOST_AUTH_METHOD=trust \
                         -e POSTGRES_INITDB_ARGS=--lc-collate=C \
                         -p 5432:5432 \
-                        postgres:15
+                        postgres:18
 
                     echo "Waiting for Postgres to accept connections..."
                     for i in $(seq 1 30); do
