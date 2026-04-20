@@ -37,4 +37,5 @@ task(compileSql, dependsOn: 'jar', type:JavaExec) {
     mainClass = 'com.spectralogic.util.db.codegen.cli.GenerateCode'
     classpath = sourceSets.main.runtimeClasspath
     args "com.spectralogic.s3.common.dao.domain.DaoDomainsSeed", "$projectDir/build/libs/dao.sql", "$projectDir/build/libs/c"
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
 }
