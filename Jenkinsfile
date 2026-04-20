@@ -154,6 +154,40 @@ EOF
             }
         }
 
+        stage('Configure Simulator Config') {
+            steps {
+                sh '''
+                    # Simulator_Test uses new Simulator() with no config. Simulator.run()
+                    # then reads /etc/spectra/simulator_config.json; if missing it falls
+                    # back to getPerfConfig() (48 drives x 1000 tapes, delays up to 195s).
+                    # That init blows past the test's 20s getStateManager timeout.
+                    # Pre-populate with the equivalent of Simulator.getTestConfig() so
+                    # init is fast (1 drive, 1 tape, zero delays).
+                    sudo mkdir -p /etc/spectra
+                    sudo tee /etc/spectra/simulator_config.json >/dev/null <<'EOF'
+{
+  "driveType": "LTO6",
+  "tapeType": "LTO6",
+  "numPartitions": 1,
+  "drivesPerPartition": 1,
+  "tapesPerPartition": 1,
+  "maxBytesPerSecond": null,
+  "virtualLibraryPath": "/tmp/simulator_data",
+  "locateDelay": 0,
+  "loadDelay": 0,
+  "unloadDelay": 0,
+  "moveDelay": 0,
+  "deleteTapesOnStartup": true
+}
+EOF
+                    sudo mkdir -p /tmp/simulator_data
+                    sudo chmod 777 /tmp/simulator_data
+                    echo "/etc/spectra/simulator_config.json now contains:"
+                    cat /etc/spectra/simulator_config.json
+                '''
+            }
+        }
+
         stage('Start Public Cloud Emulators') {
             steps {
                 sh '''
