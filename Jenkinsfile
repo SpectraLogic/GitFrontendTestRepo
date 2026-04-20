@@ -4,6 +4,10 @@ def defineBuildTarget() {
 pipeline {
     agent { label "LINUX" }
 
+    tools {
+        jdk 'jdk-21'
+    }
+
     parameters {
         string(defaultValue: '/scratch/packages/dataplanner',
                description: 'Path to archive artifacts, branch added automatically',
