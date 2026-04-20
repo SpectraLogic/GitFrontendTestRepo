@@ -164,7 +164,13 @@ pipeline {
 
         always {
             sh '''
-                docker rm -f "${PG_CONTAINER}" 2>/dev/null || true
+                # Stop and remove the container AND any anonymous volumes it
+                # created. The postgres image declares VOLUME /var/lib/postgresql/data,
+                # so an anonymous volume is created each run even though our actual
+                # data lives in the bind mount. The -v flag on docker rm reaps it.
+                docker rm -fv "${PG_CONTAINER}" 2>/dev/null || true
+
+                # Clean up the bind-mounted data directory on the host.
                 sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
             '''
         }

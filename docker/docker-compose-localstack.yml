@@ -1,19 +1,21 @@
 services:
-  localstack:
-    container_name: "localstack"
-    image: localstack/localstack:3.4.0
-    ports:
-      - "127.0.0.1:4566:4566"            # LocalStack Gateway
-      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
-    environment:
-      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
-      - DEBUG=${DEBUG:-0}
-      - SERVICES=s3
-      - DEFAULT_REGION=us-east-1
-      - HOSTNAME_EXTERNAL=localhost.localstack.cloud
-      - HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-    volumes:
-      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+    localstack:
+      container_name: "localstack"
+      image: localstack/localstack:3.4.0
+      ports:
+        - "4566:4566"
+        - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+      environment:
+        - SERVICES=s3
+        - DEFAULT_REGION=us-east-1
+        - HOSTNAME_EXTERNAL=localhost
+        - HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true
+        - DEBUG=1
+        - LAMBDA_EXECUTOR=docker
+        - AWS_ACCESS_KEY_ID=test
+        - AWS_SECRET_ACCESS_KEY=test
+        - LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1
+        - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN-}
+      volumes:
+        - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+        - "/var/run/docker.sock:/var/run/docker.sock"
