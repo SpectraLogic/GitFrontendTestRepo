@@ -67,7 +67,7 @@ import static org.mockito.Mockito.doAnswer;
 // For now they are disabled in build server builds using SKIP_RPC_TESTS env variable.
 
 @Tag("dataplanner-integration")
-@Timeout(10 * 60 * 60)
+@Timeout(5 * 60 * 60)
 public final class DataPlannerPoolIntegration_Test {
 
     @Test
