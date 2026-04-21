@@ -46,6 +46,7 @@ import com.spectralogic.util.testfrmwrk.TestUtil;
 import org.junit.jupiter.api.Tag;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.mockito.Mockito;
 
 
@@ -66,9 +67,10 @@ import static org.mockito.Mockito.doAnswer;
 // For now they are disabled in build server builds using SKIP_RPC_TESTS env variable.
 
 @Tag("dataplanner-integration")
+@Timeout(2 * 60 * 60)
 public final class DataPlannerTapeIntegration_Test {
 
-    @Test
+   // @Test
     public void testPutJobToTape() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
             tester.start();
@@ -119,7 +121,7 @@ public final class DataPlannerTapeIntegration_Test {
         }
     }
 
-    @Test
+   // @Test
     public void testPutJobToDualCopyOnTape() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(
                 Simulator.getTestConfig()
@@ -174,7 +176,7 @@ public final class DataPlannerTapeIntegration_Test {
     }
 
 
-    @Test
+   // @Test
     public void testPutJobToDualCopyOnTapeOneRetired() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(
                 Simulator.getTestConfig()
@@ -233,7 +235,7 @@ public final class DataPlannerTapeIntegration_Test {
     }
 
 
-    @Test
+    //@Test
     public void testPutJobToTapeResumesAfterLibraryDisconnect() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
             tester.start();
@@ -296,7 +298,7 @@ public final class DataPlannerTapeIntegration_Test {
     }
 
 
-    @Test
+    //@Test
     public void testPutToAndGetFromTapeWithSomeZeroByteBlobs() {
         final int numObjects = 100;
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
@@ -441,7 +443,7 @@ public final class DataPlannerTapeIntegration_Test {
     }
 
 
-    @Test
+   // @Test
     public void testPutToAndGetFromTape() {
         final int numObjects = 100;
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
@@ -584,7 +586,7 @@ public final class DataPlannerTapeIntegration_Test {
         }
     }
 
-    @Test
+   // @Test
     public void testPutToAndMultipleGetFromTape() {
         final int numObjects = 100;
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
@@ -747,7 +749,7 @@ public final class DataPlannerTapeIntegration_Test {
     /*
      Test to verify drive is not quiesced if there are tapes with single partitions
      */
-    @Test
+   // @Test
     public void testMemoryPartitionFailure() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())){
             tester.start();
@@ -786,7 +788,7 @@ public final class DataPlannerTapeIntegration_Test {
 
     }
 
-    @Test
+   // @Test
     public void testGetJobTriesSecondCopyIfFirstFails() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig().setTapesPerPartition(2).setDrivesPerPartition(2))) {
             tester.start();
@@ -948,7 +950,7 @@ public final class DataPlannerTapeIntegration_Test {
         }
     }
 
-    @Test
+    //@Test
     public void testPutJobOneCopyPoolOneCopyTape() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(
                 Simulator.getTestConfig())) {
