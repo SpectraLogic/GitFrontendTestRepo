@@ -175,6 +175,12 @@ pipeline {
                     sudo mkdir -p /etc/spectra/simulator_data
                     sudo chmod 777 /etc/spectra/simulator_data
 
+                    # pool_config.json points mountPoint at /etc/spectra/pools;
+                    # WriteChunkToPoolTask.setupObjectDirectory mkdirs subdirs
+                    # under this path during DataPlannerPoolIntegration_Test.
+                    sudo mkdir -p /etc/spectra/pools
+                    sudo chmod 777 /etc/spectra/pools
+
                     echo "Seeded /etc:"
                     ls -la /etc/version.conf /etc/spectra/ /etc/spectralogic/ || true
                 '''
