@@ -140,67 +140,43 @@ pipeline {
             }
         }
 
-        stage('Configure Test Version') {
+        stage('Seed /etc From Test Resources') {
             steps {
                 sh '''
-                    # ConfigurationInformationProvider reads /etc/version.conf to
-                    # determine the build version. When that file is absent (as on
-                    # a bare build node), version stays unset and AzureConnectionImpl
-                    # tries to authenticate against real Azure with Azurite creds,
-                    # which fails. Writing TEST_VERSION routes it to
-                    # CloudStorageAccount.getDevelopmentStorageAccount() instead.
-                    sudo tee /etc/version.conf >/dev/null <<'EOF'
-version: TEST_VERSION
-revision: TEST_REVISION
-branch: TEST_BRANCH
-EOF
-                    echo "/etc/version.conf now contains:"
-                    cat /etc/version.conf
-                '''
-            }
-        }
+                    # DataPlannerIntegrationTester.initializeConfigFiles() (see
+                    # DataPlanner/.../testfrmwrk/DataPlannerIntegrationTester.java:89)
+                    # walks DataPlanner/src/test/resources/etc/ and Files.copy()s any
+                    # missing file into /etc/. /etc/ isn't writable by the jenkins
+                    # user, so we pre-populate. The test's "if (!Files.exists(t))"
+                    # check then makes its own copy a no-op.
+                    #
+                    # Contents of the seed tree include:
+                    #   /etc/version.conf                         (TEST_VERSION — routes AzureConnectionImpl
+                    #                                              to getDevelopmentStorageAccount; see Azurite fix)
+                    #   /etc/spectra/simulator_config.json        (must contain every primitive field from
+                    #                                              SimulatorConfig or JsonMarshaler throws and
+                    #                                              Simulator silently falls back to getPerfConfig)
+                    #   /etc/spectra/pf-s3port.conf, pool_config.json, serial_number
+                    #   /etc/spectralogic/tapesystem.properties
+                    SEED_DIR="${WORKSPACE}/DataPlanner/src/test/resources/etc"
+                    if [ ! -d "$SEED_DIR" ]; then
+                        echo "ERROR: expected seed dir not found: $SEED_DIR"
+                        exit 1
+                    fi
+                    sudo mkdir -p /etc/spectra /etc/spectralogic
+                    # -n = no-clobber; keep whatever exists so operators can pin values
+                    sudo cp -Rn "$SEED_DIR/." /etc/
 
-        stage('Configure Simulator Config') {
-            steps {
-                sh '''
-                    # Simulator_Test uses new Simulator() with no config. Simulator.run()
-                    # then reads /etc/spectra/simulator_config.json; if missing it falls
-                    # back to getPerfConfig() (48 drives x 1000 tapes, delays up to 195s).
-                    # That init blows past the test's 20s getStateManager timeout.
-                    # Pre-populate with the equivalent of Simulator.getTestConfig() so
-                    # init is fast (1 drive, 1 tape, zero delays).
-                    sudo mkdir -p /etc/spectra
-                    # JsonMarshaler requires EVERY primitive field to be present
-                    # in the JSON (util/.../JsonMarshaler.java:257-262 throws
-                    # otherwise). Missing even one causes a silent fallback to
-                    # getPerfConfig() which points virtualLibraryPath at
-                    # /etc/spectra/simulator_data (a path test can't create).
-                    # Keep this JSON in sync with SimulatorConfig's int/boolean
-                    # getters if you add new fields there.
-                    sudo tee /etc/spectra/simulator_config.json >/dev/null <<'EOF'
-{
-  "driveType": "LTO6",
-  "tapeType": "LTO6",
-  "numPartitions": 1,
-  "drivesPerPartition": 1,
-  "tapesPerPartition": 1,
-  "maxBytesPerSecond": null,
-  "virtualLibraryPath": "/tmp/simulator_data",
-  "locateDelay": 0,
-  "loadDelay": 0,
-  "unloadDelay": 0,
-  "moveDelay": 0,
-  "getTapeEnvironmentDelay": 0,
-  "formatDelay": 0,
-  "inspectDelay": 0,
-  "getTapeGenerationNumberDelay": 0,
-  "deleteTapesOnStartup": true
-}
-EOF
-                    sudo mkdir -p /tmp/simulator_data
-                    sudo chmod 777 /tmp/simulator_data
-                    echo "/etc/spectra/simulator_config.json now contains:"
-                    cat /etc/spectra/simulator_config.json
+                    # Simulator_Test's perf fallback config points virtualLibraryPath
+                    # at /etc/spectra/simulator_data; addPartition (SimStateManagerImpl:143)
+                    # mkdirs this, but that fails for the jenkins user under /etc/.
+                    # Pre-create it writable so either the test config or the perf
+                    # fallback path works.
+                    sudo mkdir -p /etc/spectra/simulator_data
+                    sudo chmod 777 /etc/spectra/simulator_data
+
+                    echo "Seeded /etc:"
+                    ls -la /etc/version.conf /etc/spectra/ /etc/spectralogic/ || true
                 '''
             }
         }
