@@ -170,6 +170,13 @@ EOF
                     # Pre-populate with the equivalent of Simulator.getTestConfig() so
                     # init is fast (1 drive, 1 tape, zero delays).
                     sudo mkdir -p /etc/spectra
+                    # JsonMarshaler requires EVERY primitive field to be present
+                    # in the JSON (util/.../JsonMarshaler.java:257-262 throws
+                    # otherwise). Missing even one causes a silent fallback to
+                    # getPerfConfig() which points virtualLibraryPath at
+                    # /etc/spectra/simulator_data (a path test can't create).
+                    # Keep this JSON in sync with SimulatorConfig's int/boolean
+                    # getters if you add new fields there.
                     sudo tee /etc/spectra/simulator_config.json >/dev/null <<'EOF'
 {
   "driveType": "LTO6",
@@ -183,6 +190,10 @@ EOF
   "loadDelay": 0,
   "unloadDelay": 0,
   "moveDelay": 0,
+  "getTapeEnvironmentDelay": 0,
+  "formatDelay": 0,
+  "inspectDelay": 0,
+  "getTapeGenerationNumberDelay": 0,
   "deleteTapesOnStartup": true
 }
 EOF
