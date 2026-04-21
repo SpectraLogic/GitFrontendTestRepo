@@ -1,4 +1,4 @@
-package com.spectralogic.s3.dataplanner;
+package com.spectralogic.s3.dataplanner.integrationtest;
 
 import com.spectralogic.s3.common.dao.domain.ds3.*;
 import com.spectralogic.s3.common.dao.domain.notification.S3ObjectCachedNotificationRegistration;
