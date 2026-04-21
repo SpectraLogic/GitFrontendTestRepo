@@ -11,7 +11,13 @@ pipeline {
     }
 
     options {
-        buildDiscarder(logRotator(daysToKeepStr: '30', artifactNumToKeepStr: '7'))
+        // Build records (logs, test trends) kept 30 days; artifacts (test
+        // report HTML, binaries) purged after 1 day since this is a prototype
+        // and the HTML trees add up. Jenkins has no sub-day retention knob.
+        buildDiscarder(logRotator(
+            daysToKeepStr: '30',
+            artifactDaysToKeepStr: '1',
+            artifactNumToKeepStr: '3'))
         disableConcurrentBuilds()
     }
 
@@ -277,6 +283,18 @@ EOF
         }
 
         always {
+            // Publish JUnit results so failures (and per-test stdout/stderr)
+            // are visible in the Jenkins UI. allowEmptyResults so the build
+            // doesn't error out if tests never ran (e.g. Build stage failed).
+            junit allowEmptyResults: true,
+                  testResults: '**/build/test-results/test/*.xml'
+
+            // Archive the Gradle HTML reports so the "See the report at: file://..."
+            // link from a failing build is actually retrievable from Jenkins.
+            archiveArtifacts artifacts: '**/build/reports/tests/test/**, **/build/reports/problems/*.html',
+                             allowEmptyArchive: true,
+                             fingerprint: false
+
             sh '''
                 # Stop and remove the container AND any anonymous volumes it
                 # created. The postgres image declares VOLUME /var/lib/postgresql/data,
