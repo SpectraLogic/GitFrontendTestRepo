@@ -288,6 +288,19 @@ public final class Simulator extends BaseShutdownable implements Runnable
         {
             public void shutdownOccurred()
             {
+                final Javalin currentApp = app;
+                if ( null != currentApp )
+                {
+                    try
+                    {
+                        currentApp.stop();
+                    }
+                    catch ( final Exception ex )
+                    {
+                        LOG.error( "Error stopping Javalin during simulator shutdown", ex );
+                    }
+                    app = null;
+                }
                 m_shutdownLatch.countDown();
                 logToStandardOut( "Simulator shutdown." );
                 LOG.warn( LogUtil.getLogMessageImportantHeaderBlock( "Simulator Shutdown" ) );
