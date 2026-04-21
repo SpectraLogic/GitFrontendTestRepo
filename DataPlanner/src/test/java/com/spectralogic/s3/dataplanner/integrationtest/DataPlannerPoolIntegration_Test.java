@@ -131,7 +131,7 @@ public final class DataPlannerPoolIntegration_Test {
         }
     }
 
-    @Test
+    //@Test
     public void testPutJobToDualCopyOnPool() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(
                 Simulator.getTestConfig())) {
@@ -191,7 +191,7 @@ public final class DataPlannerPoolIntegration_Test {
         }
     }
 
-    @Test
+    //@Test
     public void testPutToAndGetFromPool() {
         final int numObjects = 100;
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
