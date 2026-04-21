@@ -301,6 +301,7 @@ project(':DataPlanner') {
         dependsOn(
            project(':simulator').tasks.named('compileJava')
         )
+        mustRunAfter project(':simulator').tasks.named('test')
     }
     dependencies {
         implementation project(':common')

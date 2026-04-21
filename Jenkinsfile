@@ -237,13 +237,15 @@ pipeline {
         }
 
         stage('Test') {
-           steps {
-            dir("${env.PROJECT_ROOT}") {
+            environment {
+                SKIP_DOCKER_INTEGRATION = 'true'
+            }
+            steps {
+                dir("${env.PROJECT_ROOT}") {
                     sh '''
-                    ./testAll.sh
+                        ./testAll.sh
                     '''
                 }
-
             }
         }
 

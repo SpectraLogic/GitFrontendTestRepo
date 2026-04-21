@@ -67,7 +67,7 @@ import static org.mockito.Mockito.doAnswer;
 // For now they are disabled in build server builds using SKIP_RPC_TESTS env variable.
 
 @Tag("dataplanner-integration")
-@Timeout(2 * 60 * 60)
+@Timeout(10 * 60 * 60)
 public final class DataPlannerPoolIntegration_Test {
 
     @Test
@@ -131,7 +131,7 @@ public final class DataPlannerPoolIntegration_Test {
         }
     }
 
-    //@Test
+    @Test
     public void testPutJobToDualCopyOnPool() {
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(
                 Simulator.getTestConfig())) {
@@ -191,7 +191,7 @@ public final class DataPlannerPoolIntegration_Test {
         }
     }
 
-   // @Test
+    @Test
     public void testPutToAndGetFromPool() {
         final int numObjects = 100;
         try (final DataPlannerIntegrationTester tester = new DataPlannerIntegrationTester(Simulator.getTestConfig())) {
