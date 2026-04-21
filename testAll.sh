@@ -91,7 +91,7 @@ do
     
     # Add "-Duse.aspectj" after $GRADLE to enable thread leak detection during test.
 
-   # if ! $GRADLE $OPTS $NO_DAEMON --offline --rerun-tasks clean test --stacktrace
+   #if ! $GRADLE $OPTS $NO_DAEMON --rerun-tasks clean test --fail-fast --scan
    if ! $GRADLE $OPTS $NO_DAEMON --rerun-tasks clean :simulator:test :DataPlanner:test --fail-fast --scan
     then
         echo

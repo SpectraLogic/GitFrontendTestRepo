@@ -302,6 +302,9 @@ project(':DataPlanner') {
            project(':simulator').tasks.named('compileJava')
         )
         mustRunAfter project(':simulator').tasks.named('test')
+        filter {
+            includeTestsMatching 'com.spectralogic.s3.dataplanner.integrationtest.*'
+        }
     }
     dependencies {
         implementation project(':common')
