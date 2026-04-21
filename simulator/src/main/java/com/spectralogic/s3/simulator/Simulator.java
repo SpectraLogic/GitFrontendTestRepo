@@ -322,21 +322,7 @@ public final class Simulator extends BaseShutdownable implements Runnable
         SimulatorRoutes routes = new SimulatorRoutes( app, stateManager, mediaChangerResource);
 
         routes.registerEndpoints();
-        try
-        {
-            LOG.warn( LogUtil.getLogMessageImportantHeaderBlock( "Simulator Ready" ) );
-            logToStandardOut( "Simulator ready." );
-            m_stateManagerReadyLatch.countDown();
-            m_shutdownLatch.await();
-        }
-        catch ( final InterruptedException ex )
-        {
-            LOG.info( "Simulator main thread has been interrupted.", ex );
-        }
 
-        // Register the endpoints
-
-        //Add Global Exception Handling for Javalin
         app.exception(Exception.class, (e, ctx) -> {
             LOG.error("Unhandled exception caught by Javalin request handler for path: "+ ctx.path() + e);
             ctx.status(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -347,7 +333,6 @@ public final class Simulator extends BaseShutdownable implements Runnable
             ));
         });
 
-        //Enhance Shutdown Hook (Optional but Recommended)
         final Javalin finalApp = app;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logToStandardOut("Shutdown hook: Stopping Javalin server...");
@@ -360,6 +345,18 @@ public final class Simulator extends BaseShutdownable implements Runnable
             logToStandardOut("Shutdown hook: Javalin server stopped.");
             LOG.info("Shutdown hook: Javalin server stopped.");
         }, "JavalinShutdownThread"));
+
+        try
+        {
+            LOG.warn( LogUtil.getLogMessageImportantHeaderBlock( "Simulator Ready" ) );
+            logToStandardOut( "Simulator ready." );
+            m_stateManagerReadyLatch.countDown();
+            m_shutdownLatch.await();
+        }
+        catch ( final InterruptedException ex )
+        {
+            LOG.info( "Simulator main thread has been interrupted.", ex );
+        }
     }
 
     
