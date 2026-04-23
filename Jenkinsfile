@@ -274,11 +274,15 @@ pipeline {
             steps {
                 dir("${env.PROJECT_ROOT}") {
                     sh '''
+                        # Unit Tests runs `clean test`, which wipes common/build/libs/dao.sql
+                        # and the war/tar distributions the Dockerfiles COPY. Rebuild them
+                        # before docker compose so the image builds don't miss their inputs.
+                        chmod +x packageAll.sh
+                        ./packageAll.sh
+
                         # Bring up the full integration stack (pg, pg-replica, tomcat,
                         # tomcat-replica, dataplanner, dataplanner-replica, simulator,
                         # simulator-replica, azurite, localstack, dnsmasq, ntp).
-                        # Artifacts (server.war, DataPlanner.tar, simulator.tar) were
-                        # produced by the earlier Build stage via packageAll.sh.
                         docker compose -f "${COMPOSE_FILE}" up -d --build
 
                         echo "Waiting for Postgres to accept connections..."
