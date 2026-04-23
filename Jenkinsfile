@@ -242,7 +242,7 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Unit Tests') {
             environment {
                 SKIP_DOCKER_INTEGRATION = 'true'
             }
@@ -250,6 +250,109 @@ pipeline {
                 dir("${env.PROJECT_ROOT}") {
                     sh '''
                         ./testAll.sh
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh '''
+                        # -v reaps the anonymous volumes these containers created.
+                        # Don't prune host-wide volumes; other jobs share the agent.
+                        docker rm -fv "${PG_CONTAINER}" 2>/dev/null || true
+                        docker rm -fv "${AZURITE_CONTAINER}" 2>/dev/null || true
+                        docker rm -fv "${LOCALSTACK_CONTAINER}" 2>/dev/null || true
+                        sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
+                    '''
+                }
+            }
+        }
+
+        stage('Integration Tests') {
+            steps {
+                dir("${env.PROJECT_ROOT}") {
+                    sh '''
+                        # Restart Postgres for integration tests (Unit Tests post-cleanup tore it down).
+                        sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
+                        mkdir -p "${PG_DATA_DIR}"
+                        docker run -d \
+                            --name "${PG_CONTAINER}" \
+                            -e POSTGRES_USER=Administrator \
+                            -e POSTGRES_PASSWORD= \
+                            -e POSTGRES_HOST_AUTH_METHOD=trust \
+                            -e POSTGRES_INITDB_ARGS=--lc-collate=C \
+                            -e PGDATA="${PG_DATA_DIR}" \
+                            -v "${PG_DATA_DIR}:${PG_DATA_DIR}" \
+                            -p 5432:5432 \
+                            postgres:18
+
+                        echo "Waiting for Postgres to accept connections..."
+                        for i in $(seq 1 30); do
+                            if docker exec "${PG_CONTAINER}" pg_isready -U Administrator >/dev/null 2>&1; then
+                                echo "Postgres is ready."
+                                break
+                            fi
+                            sleep 2
+                        done
+
+                        # Restart Azurite and LocalStack (same config as the pre-Unit-Tests stage).
+                        docker run -d \
+                            --name "${AZURITE_CONTAINER}" \
+                            -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+                            mcr.microsoft.com/azure-storage/azurite
+
+                        docker run -d \
+                            --name "${LOCALSTACK_CONTAINER}" \
+                            -e SERVICES=s3 \
+                            -e DEFAULT_REGION=us-east-1 \
+                            -e HOSTNAME_EXTERNAL=localhost \
+                            -e HOSTNAMES_ENABLE_VIRTUAL_HOSTS=true \
+                            -e DEBUG=1 \
+                            -e AWS_ACCESS_KEY_ID=test \
+                            -e AWS_SECRET_ACCESS_KEY=test \
+                            -e LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1 \
+                            -p 4566:4566 \
+                            -p 127.0.0.1:4510-4559:4510-4559 \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            localstack/localstack:3.4.0
+
+                        echo "Waiting for Azurite..."
+                        for i in $(seq 1 30); do
+                            if curl -fsS -o /dev/null -w '%{http_code}' http://localhost:10000/devstoreaccount1 2>/dev/null | grep -qE '^(200|400|403)$'; then
+                                echo "Azurite is ready."
+                                break
+                            fi
+                            sleep 2
+                        done
+
+                        echo "Waiting for LocalStack..."
+                        for i in $(seq 1 30); do
+                            if curl -fsS http://localhost:4566/_localstack/health 2>/dev/null | grep -q '"s3"'; then
+                                echo "LocalStack is ready."
+                                break
+                            fi
+                            sleep 2
+                        done
+
+                        # Run only iomtest-tagged tests from the integrationtests module.
+                        ./gradlew :integrationtests:test -PincludeTags=iomtest --rerun-tasks --fail-fast --scan
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh '''
+                        # Remove just the containers and images this pipeline created.
+                        # -v on rm reaps each container's anonymous volumes — no
+                        # host-wide volume prune. Image removal is scoped to the
+                        # three specific tags we pulled so other jobs on this
+                        # agent don't lose their cached base images.
+                        docker rm -fv "${PG_CONTAINER}" 2>/dev/null || true
+                        docker rm -fv "${AZURITE_CONTAINER}" 2>/dev/null || true
+                        docker rm -fv "${LOCALSTACK_CONTAINER}" 2>/dev/null || true
+                        docker rmi -f postgres:18 2>/dev/null || true
+                        docker rmi -f mcr.microsoft.com/azure-storage/azurite 2>/dev/null || true
+                        docker rmi -f localstack/localstack:3.4.0 2>/dev/null || true
+                        sudo rm -rf "${PG_DATA_DIR}" 2>/dev/null || rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
                     '''
                 }
             }
