@@ -21,29 +21,32 @@ import com.spectralogic.s3.common.dao.domain.target.TargetReadPreference;
 import com.spectralogic.s3.common.dao.domain.target.TargetReadPreferenceType;
 import com.spectralogic.s3.common.dao.domain.target.TargetState;
 import com.spectralogic.util.bean.BeanUtils;
+import com.spectralogic.util.bean.lang.Identifiable;
 import com.spectralogic.util.db.lang.DatabasePersistable;
 import com.spectralogic.util.db.query.Require;
 import com.spectralogic.util.db.service.api.BeansServiceManager;
 import com.spectralogic.util.lang.Validations;
 
 public final class PublicCloudBlobSupport
-    < T extends DatabasePersistable & PublicCloudReplicationTarget< T >, 
+    < T extends DatabasePersistable & PublicCloudReplicationTarget< T >,
       BT extends DatabasePersistable & BlobTarget< BT >,
       RP extends DatabasePersistable & TargetReadPreference< RP > >
 {
     public PublicCloudBlobSupport(
             final Class<T> targetType,
             final Class<BT> blobTargetType,
+            final Class<? extends BT> suspectBlobTargetType,
             final Class<RP> targetReadPreferenceType,
             final Set<UUID> blobIds,
             final BeansServiceManager serviceManager)
     {
         Validations.verifyNotNull( "Target type", targetType );
         Validations.verifyNotNull( "Blob target type", blobTargetType );
+        Validations.verifyNotNull( "Suspect blob target type", suspectBlobTargetType );
         Validations.verifyNotNull( "Target read preference type", targetReadPreferenceType );
         Validations.verifyNotEmptyCollection( "Blob ids", blobIds );
         Validations.verifyNotNull( "Service manager", serviceManager );
-        
+
         final Blob blob = serviceManager.getRetriever( Blob.class ).attain( blobIds.iterator().next() );
         final S3Object object = serviceManager.getRetriever( S3Object.class ).attain( blob.getObjectId() );
         final UUID bucketId = object.getBucketId();
@@ -53,10 +56,14 @@ public final class PublicCloudBlobSupport
             {
                 continue;
             }
-            
-            final Set< BT > bts = serviceManager.getRetriever( blobTargetType ).retrieveAll( Require.all( 
+
+            final Set< BT > bts = serviceManager.getRetriever( blobTargetType ).retrieveAll( Require.all(
                     Require.beanPropertyEquals( BlobTarget.TARGET_ID, target.getId() ),
-                    Require.beanPropertyEqualsOneOf( BlobObservable.BLOB_ID, blobIds ) ) ).toSet();
+                    Require.beanPropertyEqualsOneOf( BlobObservable.BLOB_ID, blobIds ),
+                    Require.not( Require.exists(
+                            suspectBlobTargetType,
+                            Identifiable.ID,
+                            Require.nothing() ) ) ) ).toSet();
             if ( !bts.isEmpty() )
             {
                 m_blobTargets.put( 

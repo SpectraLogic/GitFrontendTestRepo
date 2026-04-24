@@ -313,6 +313,10 @@ abstract class BasePublicCloudConnection extends BaseShutdownable implements Pub
                 }
                 catch ( final Exception ex )
                 {
+                    if ( ex instanceof BlobReadFailedException )
+                    {
+                        markBlobAsSuspect( blob.getId() );
+                    }
                     throw new RuntimeException(
                             "Failed to get cloud blob parts for blob " + blob.getId() + ".", ex );
                 }

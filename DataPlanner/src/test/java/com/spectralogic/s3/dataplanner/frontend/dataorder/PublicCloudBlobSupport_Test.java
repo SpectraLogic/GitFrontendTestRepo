@@ -22,6 +22,7 @@ import com.spectralogic.s3.common.dao.domain.target.AzureTargetReadPreference;
 import com.spectralogic.s3.common.dao.domain.target.BlobAzureTarget;
 import com.spectralogic.s3.common.dao.domain.target.ReplicationTarget;
 import com.spectralogic.s3.common.dao.domain.target.S3Target;
+import com.spectralogic.s3.common.dao.domain.target.SuspectBlobAzureTarget;
 import com.spectralogic.s3.common.dao.domain.target.TargetReadPreferenceType;
 import com.spectralogic.s3.common.dao.domain.target.TargetState;
 import com.spectralogic.s3.common.dao.service.DaoServicesSeed;
@@ -47,22 +48,24 @@ public final class PublicCloudBlobSupport_Test
         final S3Object o = mockDaoDriver.createObject( null, "o1" );
         final Blob blob = mockDaoDriver.getBlobFor( o.getId() );
 
-        new PublicCloudBlobSupport<>( 
-                AzureTarget.class, 
-                BlobAzureTarget.class, 
+        new PublicCloudBlobSupport<>(
+                AzureTarget.class,
+                BlobAzureTarget.class,
+                SuspectBlobAzureTarget.class,
                 AzureTargetReadPreference.class,
-                CollectionFactory.toSet( blob.getId() ), 
+                CollectionFactory.toSet( blob.getId() ),
                 dbSupport.getServiceManager() );
-        
+
         TestUtil.assertThrows( null, IllegalArgumentException.class, new BlastContainer()
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
+                new PublicCloudBlobSupport<>(
                         null,
-                        BlobAzureTarget.class, 
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         AzureTargetReadPreference.class,
-                        CollectionFactory.toSet( blob.getId() ), 
+                        CollectionFactory.toSet( blob.getId() ),
                         dbSupport.getServiceManager() );
             }
         } );
@@ -70,11 +73,25 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        null,
+                        SuspectBlobAzureTarget.class,
+                        AzureTargetReadPreference.class,
+                        CollectionFactory.toSet( blob.getId() ),
+                        dbSupport.getServiceManager() );
+            }
+        } );
+        TestUtil.assertThrows( null, IllegalArgumentException.class, new BlastContainer()
+        {
+            public void test()
+            {
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
                         null,
                         AzureTargetReadPreference.class,
-                        CollectionFactory.toSet( blob.getId() ), 
+                        CollectionFactory.toSet( blob.getId() ),
                         dbSupport.getServiceManager() );
             }
         } );
@@ -82,11 +99,12 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
-                        BlobAzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         null,
-                        CollectionFactory.toSet( blob.getId() ), 
+                        CollectionFactory.toSet( blob.getId() ),
                         dbSupport.getServiceManager() );
             }
         } );
@@ -94,11 +112,12 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
-                        BlobAzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         AzureTargetReadPreference.class,
-                        null, 
+                        null,
                         dbSupport.getServiceManager() );
             }
         } );
@@ -106,11 +125,12 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
-                        BlobAzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         AzureTargetReadPreference.class,
-                        CollectionFactory.toSet( blob.getId() ), 
+                        CollectionFactory.toSet( blob.getId() ),
                         null );
             }
         } );
@@ -118,11 +138,12 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
-                        BlobAzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         AzureTargetReadPreference.class,
-                        new HashSet< UUID >(), 
+                        new HashSet< UUID >(),
                         dbSupport.getServiceManager() );
             }
         } );
@@ -130,11 +151,12 @@ public final class PublicCloudBlobSupport_Test
         {
             public void test()
             {
-                new PublicCloudBlobSupport<>( 
-                        AzureTarget.class, 
-                        BlobAzureTarget.class, 
+                new PublicCloudBlobSupport<>(
+                        AzureTarget.class,
+                        BlobAzureTarget.class,
+                        SuspectBlobAzureTarget.class,
                         AzureTargetReadPreference.class,
-                        CollectionFactory.toSet( UUID.randomUUID() ), 
+                        CollectionFactory.toSet( UUID.randomUUID() ),
                         dbSupport.getServiceManager() );
             }
         } );
@@ -149,13 +171,14 @@ public final class PublicCloudBlobSupport_Test
         final S3Object o = mockDaoDriver.createObject( null, "o1" );
         final Blob blob = mockDaoDriver.getBlobFor( o.getId() );
 
-        final PublicCloudBlobSupport< ?, ?, ? > support = new PublicCloudBlobSupport<>( 
-                AzureTarget.class, 
-                BlobAzureTarget.class, 
+        final PublicCloudBlobSupport< ?, ?, ? > support = new PublicCloudBlobSupport<>(
+                AzureTarget.class,
+                BlobAzureTarget.class,
+                SuspectBlobAzureTarget.class,
                 AzureTargetReadPreference.class,
-                CollectionFactory.toSet( blob.getId() ), 
+                CollectionFactory.toSet( blob.getId() ),
                 dbSupport.getServiceManager() );
-        
+
         TestUtil.assertThrows( null, IllegalArgumentException.class, new BlastContainer()
         {
             public void test()
@@ -219,11 +242,12 @@ public final class PublicCloudBlobSupport_Test
         mockDaoDriver.putBlobOnAzureTarget( target3.getId(), blob23.getId() );
 
         Map< UUID, Set< UUID > > result;
-        final PublicCloudBlobSupport< ?, ?, ? > support = new PublicCloudBlobSupport<>( 
-                AzureTarget.class, 
-                BlobAzureTarget.class, 
+        final PublicCloudBlobSupport< ?, ?, ? > support = new PublicCloudBlobSupport<>(
+                AzureTarget.class,
+                BlobAzureTarget.class,
+                SuspectBlobAzureTarget.class,
                 AzureTargetReadPreference.class,
-                CollectionFactory.toSet( blob21.getId(), blob23.getId() ), 
+                CollectionFactory.toSet( blob21.getId(), blob23.getId() ),
                 dbSupport.getServiceManager() );
         
         result = support.getBlobs( TargetReadPreferenceType.values()[ 0 ] );

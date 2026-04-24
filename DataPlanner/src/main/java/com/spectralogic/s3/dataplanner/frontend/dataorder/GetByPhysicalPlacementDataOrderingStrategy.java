@@ -118,12 +118,14 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
             m_azureSupport = new PublicCloudBlobSupport<>(
                     AzureTarget.class,
                     BlobAzureTarget.class,
+                    SuspectBlobAzureTarget.class,
                     AzureTargetReadPreference.class,
                     blobIds,
                     m_serviceManager );
             m_s3Support = new PublicCloudBlobSupport<>(
                     S3Target.class,
                     BlobS3Target.class,
+                    SuspectBlobS3Target.class,
                     S3TargetReadPreference.class,
                     blobIds,
                     m_serviceManager );
@@ -404,7 +406,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
             UUID lastTapeId = null;
             for (final BlobTape blobTape : objectsOnTape) {
                 if (m_blobsToRead.contains(blobTape.getBlobId())) {
-                    m_entriesByBlobId.remove(blobTape.getBlobId());
+                    m_blobsToRead.remove(blobTape.getBlobId());
                 }
             }
             if (!objectsOnTape.isEmpty()) {

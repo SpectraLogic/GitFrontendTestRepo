@@ -157,8 +157,8 @@ public class IomDriverImpl_Test {
 
         test.removeUnavailableBlobs(testBlobs);
 
-        assertEquals(0, testBlobs.size(), "One blob is available in online pool");
-        assertFalse(testBlobs.stream().anyMatch(b -> b.getId().equals(b1.getId())), "blob1 should not be available");
+        assertEquals(1, testBlobs.size(), "b1 is available on tape; b2 and b3 have no source");
+        assertTrue(testBlobs.stream().anyMatch(b -> b.getId().equals(b1.getId())), "blob1 should be available");
     }
 
     @Test
@@ -281,8 +281,10 @@ public class IomDriverImpl_Test {
                 mockConnection,
                 1000);
         test.removeUnavailableBlobs(testBlobs);
-        assertEquals(3, testBlobs.size(), "One blob available on S3 target");
+        assertEquals(2, testBlobs.size(), "blob1's only S3 copy is suspect; b2 and b3 remain");
+        assertFalse(testBlobs.stream().anyMatch(b -> b.getId().equals(b1.getId())), "blob1 should not be available");
         assertTrue(testBlobs.stream().anyMatch(b -> b.getId().equals(b2.getId())), "blob2 should be available");
+        assertTrue(testBlobs.stream().anyMatch(b -> b.getId().equals(b3.getId())), "blob3 should be available");
 
     }
 
@@ -333,8 +335,9 @@ public class IomDriverImpl_Test {
                 mockConnection,
                 1000);
         test.removeUnavailableBlobs(testBlobs);
-        assertEquals(2, testBlobs.size(), "One blob available on Azure target");
-        assertTrue(testBlobs.stream().anyMatch(b -> b.getId().equals(b2.getId())), "blob2 should  be available");
+        assertEquals(1, testBlobs.size(), "b1 has no copy, b2's only Azure copy is suspect; only b3 remains");
+        assertFalse(testBlobs.stream().anyMatch(b -> b.getId().equals(b1.getId())), "blob1 should not be available");
+        assertFalse(testBlobs.stream().anyMatch(b -> b.getId().equals(b2.getId())), "blob2 should not be available");
         assertTrue(testBlobs.stream().anyMatch(b -> b.getId().equals(b3.getId())), "blob3 should be available");
 
     }

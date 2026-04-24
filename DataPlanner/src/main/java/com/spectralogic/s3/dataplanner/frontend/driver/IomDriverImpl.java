@@ -422,12 +422,14 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
         PublicCloudBlobSupport<?, ?, ?> azureSupport = new PublicCloudBlobSupport<>(
                 AzureTarget.class,
                 BlobAzureTarget.class,
+                SuspectBlobAzureTarget.class,
                 AzureTargetReadPreference.class,
                 blobIds,
                 m_serviceManager);
         PublicCloudBlobSupport<?, ?, ?> s3Support = new PublicCloudBlobSupport<>(
                 S3Target.class,
                 BlobS3Target.class,
+                SuspectBlobS3Target.class,
                 S3TargetReadPreference.class,
                 blobIds,
                 m_serviceManager);
@@ -532,7 +534,7 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
         Set<UUID> blobIds = BeanUtils.extractPropertyValues( blobs, Identifiable.ID );
         final GetByPhysicalPlacementDataOrderingStrategy placement = getPhysicalPlacementOrderingStrategy(blobIds, false);
         Set<UUID> unavailableBlobIds = placement.getUnavailableBlobs();
-
+        LOG.info("ASHA:::::DEBUG-----IOM removeUnavailableBlobs: " + unavailableBlobIds.size() + " blobs are unavailable");
         final Set< Blob > missingBlobs = new HashSet<>();
         for ( final Blob b : blobs )
         {
