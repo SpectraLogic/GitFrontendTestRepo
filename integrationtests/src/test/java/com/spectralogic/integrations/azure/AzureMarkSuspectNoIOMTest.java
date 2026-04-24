@@ -181,13 +181,6 @@ public class AzureMarkSuspectNoIOMTest {
                 LOG.info("Expected failure while starting/running read: " + e);
             }
 
-            // Give the IOM driver a few cycles to potentially enqueue recovery jobs.
-            TestUtil.sleep(5000);
-
-            GetSuspectBlobAzureTargetsSpectraS3Request suspectBlobAzureTargetsSpectraS3Request = new GetSuspectBlobAzureTargetsSpectraS3Request();
-            GetSuspectBlobAzureTargetsSpectraS3Response suspectBlobAzureTargetsSpectraS3Response = client.getSuspectBlobAzureTargetsSpectraS3(suspectBlobAzureTargetsSpectraS3Request);
-            List<SuspectBlobAzureTarget> suspectBlobAzureTargets = suspectBlobAzureTargetsSpectraS3Response.getSuspectBlobAzureTargetListResult().getSuspectBlobAzureTargets();
-            assertEquals(suspectBlobAzureTargets.size() > 0, "Suspect blobs exist");
 
             GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
             GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3(request);

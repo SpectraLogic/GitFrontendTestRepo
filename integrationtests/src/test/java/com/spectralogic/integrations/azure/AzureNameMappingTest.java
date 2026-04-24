@@ -105,7 +105,6 @@ public class AzureNameMappingTest {
         cleanupBuckets(client, bucketName);
         cleanupBuckets(remote_client, bucketName);
         if (client != null) {
-
             clearAzureReplicationRules(client, DATA_POLICY_TAPE_SINGLE_COPY_NAME );
             TestUtils.cleanSetUp(client);
             client.close();
