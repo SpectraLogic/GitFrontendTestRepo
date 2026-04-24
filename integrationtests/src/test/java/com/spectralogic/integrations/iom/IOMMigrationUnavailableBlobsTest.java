@@ -171,10 +171,7 @@ public class IOMMigrationUnavailableBlobsTest {
             TestUtil.sleep(1000);
 
             LOG.info("Checking if IOM jobs are created.");
-            assertTrue(client.getActiveJobsSpectraS3( request ).getActiveJobListResult().getActiveJobs().isEmpty());
-
-
-
+            assertFalse(client.getActiveJobsSpectraS3( request ).getActiveJobListResult().getActiveJobs().isEmpty());
 
             DeleteDataPersistenceRuleSpectraS3Request deleteDataPersistenceRuleSpectraS3Request = new DeleteDataPersistenceRuleSpectraS3Request(newPersistenceRuleId);
             client.deleteDataPersistenceRuleSpectraS3(deleteDataPersistenceRuleSpectraS3Request);

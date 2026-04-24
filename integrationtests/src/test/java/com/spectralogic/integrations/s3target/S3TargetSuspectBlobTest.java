@@ -1,7 +1,5 @@
-package com.spectralogic.integrations.azure;
+package com.spectralogic.integrations.s3target;
 
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
 import com.spectralogic.ds3client.Ds3Client;
 import com.spectralogic.ds3client.commands.GetBucketRequest;
 import com.spectralogic.ds3client.commands.GetBucketResponse;
@@ -13,94 +11,89 @@ import com.spectralogic.ds3client.models.*;
 import com.spectralogic.ds3client.models.bulk.Ds3Object;
 import com.spectralogic.integrations.CloudUtils;
 import com.spectralogic.integrations.TestUtils;
+
 import com.spectralogic.util.testfrmwrk.TestUtil;
 import org.apache.log4j.Logger;
 import org.junit.jupiter.api.*;
+import software.amazon.awssdk.services.s3.S3Client;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static com.spectralogic.integrations.CloudUtils.deleteAllContainers;
-import static com.spectralogic.integrations.DatabaseUtils.markAzureBlobSuspect;
 import static com.spectralogic.integrations.Ds3ApiHelpers.*;
 import static com.spectralogic.integrations.Ds3ApiHelpers.addJobName;
+import static com.spectralogic.integrations.Ds3ApiHelpers.getCompletedJobs;
 import static com.spectralogic.integrations.Ds3ApiHelpers.reclaimCache;
 import static com.spectralogic.integrations.Ds3ReplicationUtils.*;
-import static com.spectralogic.integrations.TestConstants.*;
+import static com.spectralogic.integrations.Ds3ReplicationUtils.clearS3ReplicationRules;
+import static com.spectralogic.integrations.TestConstants.DATA_POLICY_S3_SINGLE_COPY_NAME;
+import static com.spectralogic.integrations.TestConstants.authId;
 import static org.junit.jupiter.api.Assertions.*;
 
+/*
+    Test steps:
+    1. Set up BlackPearl with an S3 cloud target.
+    2. Create a bucket with the data policy "Single Copy on S3". Complete a PUT job.
+    3. Delete one object from the cloud bucket.
+    4. Clear cache.
+    5. Attempt reading from the cloud bucket.
+    6. Read should fail. Corrupted blob should be marked suspect and IOM jobs should be created.
 
-// Manually mark azure blob as suspect and make sure no IOM jobs are created.
-@Tag("LocalDevelopment")
-public class AzureSuspectBlobIOMJobTest {
+ */
+public class S3TargetSuspectBlobTest {
     private Ds3Client client;
     final String bucketName = "gets3bucket";
     String inputPath = "testFiles";
-    private final static Logger LOG = Logger.getLogger( AzureSuspectBlobIOMJobTest.class );
-    AzureTarget target;
-    BlobServiceClient blobServiceClient = CloudUtils.createAzuriteClient();
-    BlobContainerClient containerClient;
+    private final static Logger LOG = Logger.getLogger( S3TargetSuspectBlobTest.class );
+    S3Target target;
     UUID dataPolicyId;
-
-
     public void updateUserDataPolicy(Ds3Client client) throws IOException {
-        GetDataPoliciesSpectraS3Response responsePolicy =
+        final GetDataPoliciesSpectraS3Response responsePolicy =
                 client.getDataPoliciesSpectraS3( new GetDataPoliciesSpectraS3Request() );
         List<DataPolicy> dataPolicies = responsePolicy.getDataPolicyListResult().getDataPolicies();
         Assertions.assertFalse(dataPolicies.isEmpty());
 
-        Optional<DataPolicy> singleCopyAzureDP = dataPolicies.stream()
-                .filter(dp -> dp.getName().equals(DATA_POLICY_AZURE_SINGLE_COPY_NAME)).findFirst();
+        Optional<DataPolicy> singleCopyS3DP = dataPolicies.stream()
+                .filter(dp -> dp.getName().equals(DATA_POLICY_S3_SINGLE_COPY_NAME)).findFirst();
 
-        if (!singleCopyAzureDP.isPresent()) {
+        if (!singleCopyS3DP.isPresent()) {
             DataPolicy dp = createDataPolicy(client, DATA_POLICY_S3_SINGLE_COPY_NAME);
             dataPolicyId = dp.getId();
         } else {
-            dataPolicyId = singleCopyAzureDP.get().getId();
+            dataPolicyId = singleCopyS3DP.get().getId();
         }
 
-
-
-        target = registerAzuriteTarget(client);
-        PutAzureDataReplicationRuleSpectraS3Request putAzureDataReplicationRuleSpectraS3Request = new PutAzureDataReplicationRuleSpectraS3Request(dataPolicyId, target.getId(), DataReplicationRuleType.PERMANENT);
-        client.putAzureDataReplicationRuleSpectraS3(putAzureDataReplicationRuleSpectraS3Request);
+        target = registerS3LocalstackTarget(client);
+        PutS3DataReplicationRuleSpectraS3Request putS3DataReplicationRuleSpectraS3Request = new PutS3DataReplicationRuleSpectraS3Request(dataPolicyId, target.getId(), DataReplicationRuleType.PERMANENT);
+        client.putS3DataReplicationRuleSpectraS3(putS3DataReplicationRuleSpectraS3Request);
         client.modifyUserSpectraS3(new ModifyUserSpectraS3Request(authId).withDefaultDataPolicyId(dataPolicyId ));
     }
 
     @BeforeEach
     public void setUp() throws IOException, InterruptedException, SQLException {
-        deleteAllContainers(blobServiceClient);
-        if (!blobServiceClient.getBlobContainerClient(bucketName).exists()) {
-            containerClient = blobServiceClient.getBlobContainerClient(bucketName);
-        } else {
-            containerClient = blobServiceClient.createBlobContainer(bucketName);
-        }
-
         client  = TestUtils.setTestParams();
-        if (client != null) {
-            cleanupBuckets(client, bucketName);
-            clearAzureReplicationRules(client, DATA_POLICY_AZURE_SINGLE_COPY_NAME );
-            clearAzureTargets(client);
-
-            TestUtils.cleanSetUp(client);
-        }
+        cleanupBuckets(client, bucketName);
+        clearS3ReplicationRules(client, DATA_POLICY_S3_SINGLE_COPY_NAME );
+        clearS3Targets(client);
+        TestUtils.cleanSetUp(client);
     }
 
     @AfterEach
     public void tearDown() throws IOException, InterruptedException, SQLException {
         if (client != null) {
             cleanupBuckets(client, bucketName);
-            clearAzureReplicationRules(client, DATA_POLICY_AZURE_SINGLE_COPY_NAME );
+            clearS3ReplicationRules(client, DATA_POLICY_S3_SINGLE_COPY_NAME );
             TestUtils.cleanSetUp(client);
             client.close();
         }
@@ -110,14 +103,12 @@ public class AzureSuspectBlobIOMJobTest {
     @Test
     @Timeout(value = 25, unit = TimeUnit.MINUTES)
     public void testPutJobToTape() throws IOException, InterruptedException {
-        LOG.info("Starting test : AzureTargetSuspectBlobTest" );
+        LOG.info("Starting test : S3TargetSuspectBlobTest" );
         try {
             final Ds3ClientHelpers helper = Ds3ClientHelpers.wrap(client);
 
             updateUserDataPolicy(client);
-            toggleIOM(client, true);
 
-            // Make sure that the bucket exists, if it does not this will create it
             helper.ensureBucketExists(bucketName);
             // Get the testFiles folder as a resource
             final URL testFilesUrl = getClass().getClassLoader().getResource(inputPath);
@@ -126,6 +117,7 @@ public class AzureSuspectBlobIOMJobTest {
             }
             final Path inputPath = Paths.get(testFilesUrl.toURI());
             final Iterable<Ds3Object> objects = helper.listObjectsForDirectory(inputPath);
+
             final Ds3ClientHelpers.Job job = helper.startWriteJob(bucketName, objects);
 
             // Start the write job using an Object Putter that will read the files
@@ -133,13 +125,25 @@ public class AzureSuspectBlobIOMJobTest {
             job.transfer(new FileObjectPutter(inputPath));
 
             UUID currentJobId = job.getJobId();
-            addJobName(client, "AzureTargetSuspectBlobTest", currentJobId);
+            addJobName(client, "S3TargetSuspectBlobTest", currentJobId);
 
             GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
             GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3( request );
 
-            isJobCompleted(client, currentJobId);
+            Optional<UUID> filteredId = activeJobsResponse.getActiveJobListResult().getActiveJobs().stream()
+                    .filter(model -> model.getId().equals(currentJobId)).findFirst().map(ActiveJob::getId) ;
 
+
+            while (!filteredId.isEmpty()) {
+                activeJobsResponse = client.getActiveJobsSpectraS3( request );
+                filteredId = activeJobsResponse.getActiveJobListResult().getActiveJobs().stream()
+                        .filter(model -> model.getId().equals(currentJobId)).findFirst().map(ActiveJob::getId) ;
+                TestUtil.sleep(1000);
+            }
+
+            Optional<UUID> completedId = getCompletedJobs(client).stream()
+                    .filter(model -> model.getId().equals(currentJobId)).findFirst().map(CompletedJob::getId) ;
+            Assertions.assertNotNull(completedId.get());
 
             // Get the list of objects from the bucket that you want to perform the bulk get with.
             final GetBucketResponse response = client.getBucket(new GetBucketRequest(bucketName));
@@ -151,7 +155,8 @@ public class AzureSuspectBlobIOMJobTest {
                 objectList.add(new Ds3Object(contents.getKey(), contents.getSize()));
             }
 
-            markAzureBlobSuspect();
+            S3Client s3Client = CloudUtils.createLocalStackClient();
+            CloudUtils.deleteObject(s3Client, bucketName);
 
             final URL resourcesUrl = getClass().getClassLoader().getResource("");
             assert resourcesUrl != null;
@@ -173,9 +178,9 @@ public class AzureSuspectBlobIOMJobTest {
             reclaimCache(client);
             final Ds3ClientHelpers.Job readJob = helper.startReadAllJob(bucketName);
             UUID readJobId = readJob.getJobId();
-            addJobName(client, "ReadAzuriteTest", readJobId);
+            addJobName(client, "ReadS3TargetSuspectBlobTest", readJobId);
             try{
-                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         readJob.transfer(new FileObjectGetter(outputPathFiles));
                     } catch (IOException e) {
@@ -184,30 +189,18 @@ public class AzureSuspectBlobIOMJobTest {
                 }).get(2, TimeUnit.MINUTES);
             } catch (Exception e) {
                 System.out.println("Error executing read"+ e);
-                GetSuspectBlobAzureTargetsSpectraS3Request suspectBlobAzureTargetsSpectraS3Request = new GetSuspectBlobAzureTargetsSpectraS3Request();
-                GetSuspectBlobAzureTargetsSpectraS3Response suspectBlobAzureTargetsSpectraS3Response = client.getSuspectBlobAzureTargetsSpectraS3(suspectBlobAzureTargetsSpectraS3Request);
-                List<SuspectBlobAzureTarget> suspectBlobAzureTargets = suspectBlobAzureTargetsSpectraS3Response.getSuspectBlobAzureTargetListResult().getSuspectBlobAzureTargets();
-                assertNotNull(suspectBlobAzureTargets, "Suspect blobs  created");
-
-                request = new GetActiveJobsSpectraS3Request();
-                //Wait for IOM jobs to be created.
-                long startTime = System.currentTimeMillis();
-                long maxWaitMs = 600_000; // 600 seconds
-
-                LOG.info("Waiting for IOM jobs to be created (max 600 seconds)...");
-                while (client.getActiveJobsSpectraS3(request)
-                        .getActiveJobListResult().getActiveJobs().size() < 2) {
-                    if (getCompletedJobs(client).size() >= 3) {
-                        break;
-                    }
-                    if (System.currentTimeMillis() - startTime > maxWaitMs) {
-                        fail("Timed out waiting for IOM jobs after 600 seconds");
-                    }
-                    TestUtil.sleep(1000);
+                GetSuspectBlobS3TargetsSpectraS3Request getSuspectBlobS3TargetsSpectraS3Request = new GetSuspectBlobS3TargetsSpectraS3Request();
+                GetSuspectBlobS3TargetsSpectraS3Response getSuspectBlobS3TargetsSpectraS3Response = client.getSuspectBlobS3TargetsSpectraS3(getSuspectBlobS3TargetsSpectraS3Request);
+                List<SuspectBlobS3Target> suspectBlobS3Targets = getSuspectBlobS3TargetsSpectraS3Response.getSuspectBlobS3TargetListResult().getSuspectBlobS3Targets();
+                assertFalse(suspectBlobS3Targets.isEmpty(), "Suspect blobs not created");
+                try {
+                    request = new GetActiveJobsSpectraS3Request();
+                    activeJobsResponse = client.getActiveJobsSpectraS3( request );
+                    assertEquals(1, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
                 }
-                activeJobsResponse = client.getActiveJobsSpectraS3( request );
-                assertEquals(3, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
-                
+
             }
 
         } catch (IOException | URISyntaxException e) {

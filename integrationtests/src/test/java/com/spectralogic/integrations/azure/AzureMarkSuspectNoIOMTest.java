@@ -13,6 +13,7 @@ import com.spectralogic.ds3client.models.*;
 import com.spectralogic.ds3client.models.bulk.Ds3Object;
 import com.spectralogic.integrations.CloudUtils;
 import com.spectralogic.integrations.TestUtils;
+import com.spectralogic.util.testfrmwrk.TestUtil;
 import org.apache.log4j.Logger;
 import org.junit.jupiter.api.*;
 
@@ -30,22 +31,23 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.spectralogic.integrations.CloudUtils.deleteAllContainers;
+import static com.spectralogic.integrations.DatabaseUtils.markAzureBlobSuspect;
 import static com.spectralogic.integrations.Ds3ApiHelpers.*;
-import static com.spectralogic.integrations.Ds3ApiHelpers.addJobName;
-import static com.spectralogic.integrations.Ds3ApiHelpers.reclaimCache;
 import static com.spectralogic.integrations.Ds3ReplicationUtils.*;
-import static com.spectralogic.integrations.Ds3ReplicationUtils.clearS3ReplicationRules;
 import static com.spectralogic.integrations.TestConstants.*;
-import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+// Mark all Azure blobs suspect in the DB. With single-copy data policy there is no
+// surviving source, so IOM must NOT create recovery jobs. Only the failed read should
+// remain active.
 @Tag("LocalDevelopment")
 @Tag("iomtest")
-public class AzureSuspectBlobTest {
+public class AzureMarkSuspectNoIOMTest {
     private Ds3Client client;
     final String bucketName = "gets3bucket";
     String inputPath = "testFiles";
-    private final static Logger LOG = Logger.getLogger( AzureSuspectBlobTest.class );
+    private final static Logger LOG = Logger.getLogger( AzureMarkSuspectNoIOMTest.class );
     AzureTarget target;
     BlobServiceClient blobServiceClient = CloudUtils.createAzuriteClient();
     BlobContainerClient containerClient;
@@ -62,16 +64,15 @@ public class AzureSuspectBlobTest {
                 .filter(dp -> dp.getName().equals(DATA_POLICY_AZURE_SINGLE_COPY_NAME)).findFirst();
 
         if (!singleCopyAzureDP.isPresent()) {
-            DataPolicy dp = createDataPolicy(client, DATA_POLICY_S3_SINGLE_COPY_NAME);
+            DataPolicy dp = createDataPolicy(client, DATA_POLICY_AZURE_SINGLE_COPY_NAME);
             dataPolicyId = dp.getId();
         } else {
             dataPolicyId = singleCopyAzureDP.get().getId();
         }
 
-
-
         target = registerAzuriteTarget(client);
-        PutAzureDataReplicationRuleSpectraS3Request putAzureDataReplicationRuleSpectraS3Request = new PutAzureDataReplicationRuleSpectraS3Request(dataPolicyId, target.getId(), DataReplicationRuleType.PERMANENT);
+        PutAzureDataReplicationRuleSpectraS3Request putAzureDataReplicationRuleSpectraS3Request =
+                new PutAzureDataReplicationRuleSpectraS3Request(dataPolicyId, target.getId(), DataReplicationRuleType.PERMANENT);
         client.putAzureDataReplicationRuleSpectraS3(putAzureDataReplicationRuleSpectraS3Request);
         client.modifyUserSpectraS3(new ModifyUserSpectraS3Request(authId).withDefaultDataPolicyId(dataPolicyId ));
     }
@@ -109,13 +110,12 @@ public class AzureSuspectBlobTest {
 
     @Test
     @Timeout(value = 25, unit = TimeUnit.MINUTES)
-    public void testPutJobToTape() throws IOException, InterruptedException {
-        LOG.info("Starting test : AzureTargetSuspectBlobTest" );
+    public void testMarkSuspectNoIOM() throws IOException, InterruptedException {
+        LOG.info("Starting test : AzureMarkSuspectNoIOMTest" );
         try {
             final Ds3ClientHelpers helper = Ds3ClientHelpers.wrap(client);
 
             updateUserDataPolicy(client);
-
 
             // Make sure that the bucket exists, if it does not this will create it
             helper.ensureBucketExists(bucketName);
@@ -127,28 +127,28 @@ public class AzureSuspectBlobTest {
             final Path inputPath = Paths.get(testFilesUrl.toURI());
             final Iterable<Ds3Object> objects = helper.listObjectsForDirectory(inputPath);
             final Ds3ClientHelpers.Job job = helper.startWriteJob(bucketName, objects);
-
-            // Start the write job using an Object Putter that will read the files
-            // from the local file system.
-            job.transfer(new FileObjectPutter(inputPath));
-
             UUID currentJobId = job.getJobId();
-            addJobName(client, "AzureTargetSuspectBlobTest", currentJobId);
+            // Set the job name while the job is still active. Doing this after transfer can race
+            // with DataPlanner's completed-job cleanup and 404.
+            addJobName(client, "AzureMarkSuspectNoIOMTest", currentJobId);
+
+            job.transfer(new FileObjectPutter(inputPath));
 
             isJobCompleted(client, currentJobId);
 
-
-            // Get the list of objects from the bucket that you want to perform the bulk get with.
             final GetBucketResponse response = client.getBucket(new GetBucketRequest(bucketName));
 
-
-            // We now need to generate the list of Ds3Objects that we want to get from DS3.
             final List<Ds3Object> objectList = new ArrayList<>();
             for (final Contents contents : response.getListBucketResult().getObjects()) {
                 objectList.add(new Ds3Object(contents.getKey(), contents.getSize()));
             }
 
-            CloudUtils.deleteObject(containerClient);
+            // Reclaim cache BEFORE marking suspect. Once the only durable copy is suspect, the
+            // reclaimer conservatively refuses to evict, so cache would never empty.
+            reclaimCache(client);
+
+            // Mark Azure blobs as suspect directly in the database.
+            markAzureBlobSuspect();
 
             final URL resourcesUrl = getClass().getClassLoader().getResource("");
             assert resourcesUrl != null;
@@ -157,46 +157,44 @@ public class AzureSuspectBlobTest {
             final Path resourcesPath = Paths.get(resourcesUrl.toURI());
             final Path outputPathFiles = resourcesPath.resolve(outputPath);
 
-
-            //Output will be created in the build/classes
             try {
                 Files.createDirectories(outputPathFiles);
-                System.out.println("Created output directory: " + outputPathFiles.toAbsolutePath());
             } catch (IOException e) {
-                System.err.println("Failed to create directory: " + e.getMessage());
                 throw new RuntimeException("Directory setup failed.", e);
             }
 
-            reclaimCache(client);
-            final Ds3ClientHelpers.Job readJob = helper.startReadAllJob(bucketName);
-            UUID readJobId = readJob.getJobId();
-            addJobName(client, "ReadAzuriteTest", readJobId);
-            try{
+            // Cache is empty and all Azure placements are suspect, so the strategy must refuse to
+            // create the GET job.
+
+            try {
+                final Ds3ClientHelpers.Job readJob = helper.startReadAllJob(bucketName);
+                addJobName(client, "ReadAzureMarkSuspectNoIOMTest", readJob.getJobId());
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
                         readJob.transfer(new FileObjectGetter(outputPathFiles));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
                     }
                 }).get(2, TimeUnit.MINUTES);
+                Assertions.fail("Read should have been refused because all Azure blobs are suspect");
             } catch (Exception e) {
-                System.out.println("Error executing read"+ e);
-                GetSuspectBlobAzureTargetsSpectraS3Request suspectBlobAzureTargetsSpectraS3Request = new GetSuspectBlobAzureTargetsSpectraS3Request();
-                GetSuspectBlobAzureTargetsSpectraS3Response suspectBlobAzureTargetsSpectraS3Response = client.getSuspectBlobAzureTargetsSpectraS3(suspectBlobAzureTargetsSpectraS3Request);
-                List<SuspectBlobAzureTarget> suspectBlobAzureTargets = suspectBlobAzureTargetsSpectraS3Response.getSuspectBlobAzureTargetListResult().getSuspectBlobAzureTargets();
-                assertFalse(suspectBlobAzureTargets.isEmpty(), "Suspect blobs not created");
-
-                try {
-                    GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
-                    GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3( request );
-                    assertEquals(1, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
-
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-
-
+                LOG.info("Expected failure while starting/running read: " + e);
             }
+
+            // Give the IOM driver a few cycles to potentially enqueue recovery jobs.
+            TestUtil.sleep(5000);
+
+            GetSuspectBlobAzureTargetsSpectraS3Request suspectBlobAzureTargetsSpectraS3Request = new GetSuspectBlobAzureTargetsSpectraS3Request();
+            GetSuspectBlobAzureTargetsSpectraS3Response suspectBlobAzureTargetsSpectraS3Response = client.getSuspectBlobAzureTargetsSpectraS3(suspectBlobAzureTargetsSpectraS3Request);
+            List<SuspectBlobAzureTarget> suspectBlobAzureTargets = suspectBlobAzureTargetsSpectraS3Response.getSuspectBlobAzureTargetListResult().getSuspectBlobAzureTargets();
+            assertEquals(suspectBlobAzureTargets.size() > 0, "Suspect blobs exist");
+
+            GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
+            GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3(request);
+            // Read job creation was refused (no readable source) and IOM must not enqueue recovery
+            // jobs either, so no jobs should remain active.
+            assertEquals(0, activeJobsResponse.getActiveJobListResult().getActiveJobs().size(),
+                    "IOM must not create recovery jobs when the only source is suspect");
 
         } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);

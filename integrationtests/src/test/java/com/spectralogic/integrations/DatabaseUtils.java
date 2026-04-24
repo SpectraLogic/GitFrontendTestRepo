@@ -6,6 +6,8 @@ import com.spectralogic.ds3client.models.*;
 
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static com.spectralogic.integrations.TestConstants.*;
@@ -393,21 +395,27 @@ public class DatabaseUtils {
     }
 
     public static void markAzureBlobSuspect()  {
-        final String selectSQL = "SELECT blob_id, id, target_id FROM target.blob_azure_target";
+        markAzureBlobSuspect(Integer.MAX_VALUE);
+    }
+
+    public static void markAzureBlobSuspect(int recordCount)  {
+        final String selectSQL = "SELECT blob_id, id, target_id FROM target.blob_azure_target LIMIT ?";
         final String insertSQL = "INSERT INTO target.suspect_blob_azure_target (blob_id, id, target_id) VALUES (?, ?, ?)";
 
         try (final Connection connection = getTestDatabaseConnection();
-             final PreparedStatement selectStatement = connection.prepareStatement(selectSQL);
-             final ResultSet resultSet = selectStatement.executeQuery();
-             final PreparedStatement insertStatement = connection.prepareStatement(insertSQL)) {
+             final PreparedStatement selectStatement = connection.prepareStatement(selectSQL)) {
+            selectStatement.setInt(1, recordCount);
+            try (final ResultSet resultSet = selectStatement.executeQuery();
+                 final PreparedStatement insertStatement = connection.prepareStatement(insertSQL)) {
 
-            while (resultSet.next()) {
-                insertStatement.setObject(1, resultSet.getObject("blob_id"));
-                insertStatement.setObject(2, resultSet.getObject("id"));
-                insertStatement.setObject(3, resultSet.getObject("target_id"));
-                final int rowsAffected = insertStatement.executeUpdate();
-                if (rowsAffected == 0) {
-                    throw new SQLException("Marking blob for axure as suspect failed, no rows affected for blob_id: " + resultSet.getObject("blob_id"));
+                while (resultSet.next()) {
+                    insertStatement.setObject(1, resultSet.getObject("blob_id"));
+                    insertStatement.setObject(2, resultSet.getObject("id"));
+                    insertStatement.setObject(3, resultSet.getObject("target_id"));
+                    final int rowsAffected = insertStatement.executeUpdate();
+                    if (rowsAffected == 0) {
+                        throw new SQLException("Marking blob for axure as suspect failed, no rows affected for blob_id: " + resultSet.getObject("blob_id"));
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -416,10 +424,96 @@ public class DatabaseUtils {
 
     }
 
+    public static void deleteObjectsFromBucket(String bucketName, int count) {
+        final String selectSQL =
+                "SELECT o.id AS object_id FROM ds3.s3_object o " +
+                "JOIN ds3.bucket b ON o.bucket_id = b.id " +
+                "WHERE b.name = ? LIMIT ?";
+        final String deleteBlobTapeSQL = "DELETE FROM tape.blob_tape WHERE blob_id IN (SELECT id FROM ds3.blob WHERE object_id = ?)";
+        final String deleteBlobSQL = "DELETE FROM ds3.blob WHERE object_id = ?";
+        final String deleteObjectSQL = "DELETE FROM ds3.s3_object WHERE id = ?";
+
+        try (final Connection connection = getTestDatabaseConnection()) {
+            connection.setAutoCommit(false);
+
+            final List<Object> objectIds = new ArrayList<>();
+            try (final PreparedStatement selectStatement = connection.prepareStatement(selectSQL)) {
+                selectStatement.setString(1, bucketName);
+                selectStatement.setInt(2, count);
+                try (final ResultSet resultSet = selectStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        objectIds.add(resultSet.getObject("object_id"));
+                    }
+                }
+            }
+
+            try (final PreparedStatement deleteBlobTape = connection.prepareStatement(deleteBlobTapeSQL);
+                 final PreparedStatement deleteBlob = connection.prepareStatement(deleteBlobSQL);
+                 final PreparedStatement deleteObject = connection.prepareStatement(deleteObjectSQL)) {
+                for (Object objectId : objectIds) {
+                    deleteBlobTape.setObject(1, objectId);
+                    deleteBlobTape.executeUpdate();
+                    deleteBlob.setObject(1, objectId);
+                    deleteBlob.executeUpdate();
+                    deleteObject.setObject(1, objectId);
+                    deleteObject.executeUpdate();
+                }
+            }
+
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete objects from database for bucket " + bucketName, e);
+        }
+    }
+
+    public static boolean isBlobCacheEmpty() {
+        final String countSQL = "SELECT COUNT(*) FROM planner.blob_cache";
+        try (final Connection connection = getTestDatabaseConnection();
+             final PreparedStatement statement = connection.prepareStatement(countSQL);
+             final ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getLong(1) == 0;
+            }
+            return true;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query planner.blob_cache via JDBC", e);
+        }
+    }
+
+    public static void markS3BlobSuspect()  {
+        markS3BlobSuspect(Integer.MAX_VALUE);
+    }
+
+    public static void markS3BlobSuspect(int recordCount)  {
+        final String selectSQL = "SELECT blob_id, id, target_id FROM target.blob_s3_target LIMIT ?";
+        final String insertSQL = "INSERT INTO target.suspect_blob_s3_target (blob_id, id, target_id) VALUES (?, ?, ?)";
+
+        try (final Connection connection = getTestDatabaseConnection();
+             final PreparedStatement selectStatement = connection.prepareStatement(selectSQL)) {
+            selectStatement.setInt(1, recordCount);
+            try (final ResultSet resultSet = selectStatement.executeQuery();
+                 final PreparedStatement insertStatement = connection.prepareStatement(insertSQL)) {
+
+                while (resultSet.next()) {
+                    insertStatement.setObject(1, resultSet.getObject("blob_id"));
+                    insertStatement.setObject(2, resultSet.getObject("id"));
+                    insertStatement.setObject(3, resultSet.getObject("target_id"));
+                    final int rowsAffected = insertStatement.executeUpdate();
+                    if (rowsAffected == 0) {
+                        throw new SQLException("Marking blob for S3 as suspect failed, no rows affected for blob_id: " + resultSet.getObject("blob_id"));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to mark blob(s) as suspect for S3 via JDBC", e);
+        }
+
+    }
+
     public static Connection getRemoteTestDatabaseConnection() {
         Connection connection;
         try{
-            connection =  DriverManager.getConnection("jdbc:postgresql://localhost:5433/tapesystem", "Administrator", "dogfish");
+            connection =  DriverManager.getConnection("jdbc:postgresql://localhost:5533/tapesystem", "Administrator", "dogfish");
             return connection;
         } catch (SQLException e) {
             throw new RuntimeException(e);
