@@ -49,7 +49,7 @@ public class AzureTargetWorkAggregationUtils {
         long taskSize = 0;
 
         for (final AzureJobEntryWork workEntry : work) {
-            if (taskSize + workEntry.getLength() > MAX_BYTES_PER_TASK || entries.size() >= MAX_ENTRIES_PER_TASK) {
+            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > MAX_BYTES_PER_TASK || entries.size() >= MAX_ENTRIES_PER_TASK)) {
                 break;
             }
             entries.add(workEntry);

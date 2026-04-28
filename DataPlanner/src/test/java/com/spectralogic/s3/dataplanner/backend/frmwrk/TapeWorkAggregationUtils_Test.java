@@ -366,6 +366,38 @@ public class TapeWorkAggregationUtils_Test {
     }
 
     @Test
+    public void testDiscoverTapeWorkAggregatedSingleOversizedEntryStillReturnsDirective() {
+        final Tape tape1 = mockDaoDriver.createTape( TapeState.NORMAL );
+        final Tape tape2 = mockDaoDriver.createTape( TapeState.NORMAL );
+        final MockDiskManager mockDiskManager = new MockDiskManager( dbSupport.getServiceManager() );
+        final StorageDomainMember sdm = mockDaoDriver.addTapePartitionToStorageDomain(
+                sd.getId(), tape1.getPartitionId(), tape1.getType() );
+        mockDaoDriver.updateBean( tape2.setStorageDomainMemberId( sdm.getId() ),
+                PersistenceTarget.STORAGE_DOMAIN_MEMBER_ID );
+
+        // A single blob larger than MAX_BYTES_PER_TASK (100 GB).
+        final long oversizedLength = 100L * 1024L * 1024L * 1024L + 1L;
+        final S3Object bigObj = mockDaoDriver.createObject( bucket.getId(), "bigobj", oversizedLength );
+        final Blob bigBlob = mockDaoDriver.getBlobFor( bigObj.getId() );
+
+        final Job job = mockDaoDriver.createJob( bucket.getId(), null, JobRequestType.PUT );
+        mockDaoDriver.updateBean(job.setPriority(BlobStoreTaskPriority.HIGH), Job.PRIORITY);
+        final JobEntry entry = mockDaoDriver.createJobEntry( job.getId(), bigBlob );
+
+        mockDaoDriver.createLocalBlobDestinations( Arrays.asList(entry), Arrays.asList(rule), bucket.getId() );
+        mockDaoDriver.markBlobInCache( bigBlob.getId() );
+        mockDiskManager.blobLoadedToCache( bigBlob.getId() );
+
+        final List<IODirective> result = TapeWorkAggregationUtils.discoverTapeWorkAggregated(
+                dbSupport.getServiceManager(), BlobStoreTaskPriority.HIGH, null, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.size(), "A single oversized entry should still produce a directive");
+        assertEquals(1, result.get(0).getEntries().size(), "Directive should contain the oversized entry");
+        assertEquals(entry.getId(), result.get(0).getEntries().iterator().next().getId());
+    }
+
+    @Test
     public void testDiscoverTapeWorkAggregatedPutMinSpanningEnabledGrouping() {
         final Tape tape1 = mockDaoDriver.createTape( TapeState.NORMAL );
         final Tape tape2 = mockDaoDriver.createTape( TapeState.NORMAL );

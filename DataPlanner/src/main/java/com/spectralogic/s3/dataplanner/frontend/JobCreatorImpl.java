@@ -130,8 +130,27 @@ public final class JobCreatorImpl implements JobCreator
                 }
             }
 
+            // IN_ORDER jobs have chunk numbers assigned up front in ascending byte offset order.
+            if (chunkClientProcessingOrderGuarantee == JobChunkClientProcessingOrderGuarantee.IN_ORDER) {
+                final List<JobEntry> entriesSortedByOffset = new ArrayList<>(jobEntries);
+                entriesSortedByOffset.sort(Comparator.comparingLong(entry -> {
+                    final Blob blob = blobsById.get(entry.getBlobId());
+                    if (blob == null) {
+                        throw new IllegalStateException("Blob " + entry.getBlobId() + " not found for job entry in job " + jobId);
+                    }
+                    return blob.getByteOffset();
+                }));
+
+                int chunkNumber = 0;
+                for (final JobEntry entry : entriesSortedByOffset) {
+                    entry.setChunkNumber(chunkNumber++);
+                }
+            }
+
             for (final JobEntry zeroLengthEntry : zeroLengthEntriesToCreate) {
-                zeroLengthEntry.setChunkNumber(existingChunkNumbers.get(index++));
+                if (chunkClientProcessingOrderGuarantee != JobChunkClientProcessingOrderGuarantee.IN_ORDER) {
+                    zeroLengthEntry.setChunkNumber(existingChunkNumbers.get(index++));
+                }
                 entriesNeedingReadSources.remove(zeroLengthEntry.getBlobId());
             }
             if (JobRequestType.VERIFY != job.getRequestType()) {
@@ -140,7 +159,9 @@ public final class JobCreatorImpl implements JobCreator
                     if (zeroLengthEntriesToCreate.contains(entryAlreadyInCache)) {
                         continue;
                     }
-                    entryAlreadyInCache.setChunkNumber(existingChunkNumbers.get(index++));
+                    if (chunkClientProcessingOrderGuarantee != JobChunkClientProcessingOrderGuarantee.IN_ORDER) {
+                        entryAlreadyInCache.setChunkNumber(existingChunkNumbers.get(index++));
+                    }
                     entriesNeedingReadSources.remove(entryAlreadyInCache.getBlobId());
                 }
             }
@@ -150,8 +171,10 @@ public final class JobCreatorImpl implements JobCreator
             final String userName = m_serviceManager.getRetriever(User.class).attain(params.getUserId()).getName();
             Set<PersistenceType> readSources = Collections.emptySet();
             if (!entriesNeedingReadSources.isEmpty()) {
-                for (final JobEntry entry : entriesNeedingReadSources.values()) {
-                    entry.setChunkNumber(existingChunkNumbers.get(index++));
+                if (chunkClientProcessingOrderGuarantee != JobChunkClientProcessingOrderGuarantee.IN_ORDER) {
+                    for (final JobEntry entry : entriesNeedingReadSources.values()) {
+                        entry.setChunkNumber(existingChunkNumbers.get(index++));
+                    }
                 }
                 readSources = new GetByPhysicalPlacementDataOrderingStrategy(
                         entriesNeedingReadSources,
@@ -164,7 +187,7 @@ public final class JobCreatorImpl implements JobCreator
                                 m_ds3ConnectionFactory),
                         m_diskManager,
                         userName,
-                        job.getIomType() == IomType.STANDARD_IOM).setReadSources();
+                        job.getIomType() == IomType.STANDARD_IOM).setReadSources(false);
             }
             // Entries assigned to targets or tape need task processing, not direct serving from pool.
             // The isOnDisk check above may have prematurely marked them COMPLETED.

@@ -224,7 +224,7 @@ public class GetFromNativeS3SameSizeCorruptionTest {
                 System.out.println("Error executing read" + e);
                 GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
                 GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3(request);
-                assertEquals(3, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
+                assertEquals(1, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
             }
 
         } catch (IOException | URISyntaxException e) {

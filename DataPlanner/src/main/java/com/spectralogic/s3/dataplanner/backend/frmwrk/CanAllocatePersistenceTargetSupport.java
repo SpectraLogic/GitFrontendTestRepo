@@ -8,6 +8,8 @@ package com.spectralogic.s3.dataplanner.backend.frmwrk;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -49,21 +51,64 @@ public final class CanAllocatePersistenceTargetSupport
             return true;
         }
 
-        final WriteOptimizationData data = WRITE_OPTIMIZATION_DATA_CACHE.get(
-                new BucketStorageDomain( isolatedBucketId, storageDomain.getId() ) );
+        final BucketStorageDomain key = new BucketStorageDomain( isolatedBucketId, storageDomain.getId() );
+        final WriteOptimizationData data = WRITE_OPTIMIZATION_DATA_CACHE.get( key );
         final long totalAvailableBytes = data.getTotalAvailableCapacity( fullSize );
         final BytesRenderer bytesRenderer = new BytesRenderer();
         if ( totalAvailableBytes < data.m_pendingDataToWrite || 0 == totalAvailableBytes )
         {
-            LOG.info( "Media can be allocated to storage domain " + storageDomain.getId() 
-                      + " since " + bytesRenderer.render( data.m_pendingDataToWrite ) 
-                      + " of data is waiting to be written and " 
-                      + bytesRenderer.render( totalAvailableBytes ) 
-                      + " is available on tapes and pools we might be able to use." );
+            if ( shouldLogAllocation( key, data.m_pendingDataToWrite, totalAvailableBytes ) )
+            {
+                LOG.info( "Media can be allocated to storage domain " + storageDomain.getId()
+                        + " for bucket " + isolatedBucketId + ","
+                          + " since " + bytesRenderer.render( data.m_pendingDataToWrite )
+                          + " of data is waiting to be written and "
+                          + bytesRenderer.render( totalAvailableBytes )
+                          + " is available on tapes and pools we might be able to use." );
+            }
             return true;
         }
         return false;
     }
+
+
+    private static boolean shouldLogAllocation(
+            final BucketStorageDomain key,
+            final long pendingDataToWrite,
+            final long totalAvailableBytes )
+    {
+        final long now = System.nanoTime();
+        final LogThrottleEntry prev = LOG_THROTTLE.get( key );
+        final boolean valuesChanged = prev == null
+                || prev.m_pendingDataToWrite != pendingDataToWrite
+                || prev.m_totalAvailableBytes != totalAvailableBytes;
+        final boolean windowExpired = prev == null
+                || now - prev.m_timestampNanos >= LOG_THROTTLE_NANOS;
+        if ( valuesChanged || windowExpired )
+        {
+            LOG_THROTTLE.put( key, new LogThrottleEntry( now, pendingDataToWrite, totalAvailableBytes ) );
+            return true;
+        }
+        return false;
+    }
+
+
+    private final static class LogThrottleEntry
+    {
+        private LogThrottleEntry(
+                final long timestampNanos,
+                final long pendingDataToWrite,
+                final long totalAvailableBytes )
+        {
+            m_timestampNanos = timestampNanos;
+            m_pendingDataToWrite = pendingDataToWrite;
+            m_totalAvailableBytes = totalAvailableBytes;
+        }
+
+        private final long m_timestampNanos;
+        private final long m_pendingDataToWrite;
+        private final long m_totalAvailableBytes;
+    } // end inner class def
     
     
     private final static class BucketStorageDomain
@@ -193,5 +238,8 @@ public final class CanAllocatePersistenceTargetSupport
     private final static MutableCache< BucketStorageDomain, WriteOptimizationData>
             WRITE_OPTIMIZATION_DATA_CACHE =
             new MutableCache<>( 30000, new WriteOptimizationDataProvider() );
+    private final static long LOG_THROTTLE_NANOS = TimeUnit.MINUTES.toNanos( 2 );
+    private final static ConcurrentHashMap< BucketStorageDomain, LogThrottleEntry > LOG_THROTTLE =
+            new ConcurrentHashMap<>();
     private final static Logger LOG = Logger.getLogger( CanAllocatePersistenceTargetSupport.class );
 }

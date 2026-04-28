@@ -34,3 +34,14 @@ dependencies {
         transitive = false
     }
 }
+
+// Copies DataPlanner's resolved runtime classpath (external deps + transitively
+// pulled internal module jars) into build/runtime-libs/. Used by the Dockerfile
+// to populate the runtime container's lib/ dir with a single coherent set of
+// jars — replaces the older "dump every jar from the gradle cache" pattern
+// that was prone to mixing multiple versions of the same artifact.
+tasks.register('copyRuntimeLibs', Copy) {
+    from configurations.runtimeClasspath
+    into "$buildDir/runtime-libs"
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

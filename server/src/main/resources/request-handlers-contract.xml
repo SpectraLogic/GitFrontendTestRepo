@@ -3420,6 +3420,12 @@
         </Request>
         <ResponseCodes>
           <ResponseCode>
+            <Code>200</Code>
+            <ResponseTypes>
+              <ResponseType Type="com.spectralogic.s3.server.domain.JobWithChunksApiBean"/>
+            </ResponseTypes>
+          </ResponseCode>
+          <ResponseCode>
             <Code>400</Code>
             <ResponseTypes>
               <ResponseType Type="com.spectralogic.s3.server.domain.HttpErrorResultApiBean"/>

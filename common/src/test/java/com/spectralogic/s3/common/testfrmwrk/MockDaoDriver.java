@@ -1200,7 +1200,7 @@ public class MockDaoDriver
                         .map(rule -> BeanFactory.newBean(LocalBlobDestination.class)
                                 .setEntryId(entry.getId())
                                 .setStorageDomainId(rule.getStorageDomainId())
-                                .setIsolatedBucketId(isolatedBucketIdsByRule.get(rule.getIsolationLevel()))
+                                .setIsolatedBucketId(isolatedBucketIdsByRule.get(rule.getId()))
                                 .setPersistenceRuleId(rule.getId())
 
                         )

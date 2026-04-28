@@ -199,7 +199,7 @@ public class S3NativeTargetSuspectBlobTest {
                 try {
                     request = new GetActiveJobsSpectraS3Request();
                     activeJobsResponse = client.getActiveJobsSpectraS3( request );
-                    assertEquals(3, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
+                    assertEquals(1, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }

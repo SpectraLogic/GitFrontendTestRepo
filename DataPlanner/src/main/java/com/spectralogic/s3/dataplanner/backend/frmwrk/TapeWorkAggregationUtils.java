@@ -85,7 +85,7 @@ public class TapeWorkAggregationUtils {
         for (final LocalJobEntryWork workEntry : work) {
             long maxTaskSize = (key.minimizeSpanningAcrossMedia) ? MINSPANNING_TASK_SIZE : MAX_BYTES_PER_TASK;
 
-            if (taskSize + workEntry.getLength() > maxTaskSize || entries.size() >= MAX_ENTRIES_PER_TASK) {
+            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > maxTaskSize || entries.size() >= MAX_ENTRIES_PER_TASK)) {
                 break;
             }
             entries.add(workEntry);

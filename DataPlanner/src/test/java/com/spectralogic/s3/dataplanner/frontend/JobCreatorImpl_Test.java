@@ -535,6 +535,91 @@ public final class JobCreatorImpl_Test
 
     }
 
+    @Test
+    public void testChunkNumberWithInOrderGuarantee() {
+        final Bucket bucket = mockDaoDriver.createBucket( null, "bucket1" );
+
+        final S3Object o1 = mockDaoDriver.createObject( bucket.getId(), "multiBlob1", -1 );
+        final List<Blob> o1Blobs = mockDaoDriver.createBlobs( o1.getId(), 3, 10 );
+        cacheManager.blobLoadedToCache( o1Blobs.getLast().getId() );
+
+        final S3Object o2 = mockDaoDriver.createObject( bucket.getId(), "multiBlob2", -1 );
+        final List<Blob> o2Blobs = mockDaoDriver.createBlobs( o2.getId(), 2, 10 );
+
+        final S3Object o3 = mockDaoDriver.createObject( bucket.getId(), "singleBlob", 1 );
+        final Blob b3 = mockDaoDriver.getBlobFor( o3.getId() );
+
+        final S3Object o4 = mockDaoDriver.createObject( bucket.getId(), "singleBlobInCache", 1 );
+        final Blob b4 = mockDaoDriver.getBlobFor( o4.getId() );
+        cacheManager.blobLoadedToCache( b4.getId() );
+
+        final S3Object o5 = mockDaoDriver.createObject( bucket.getId(), "zeroLength", 0 );
+        final Blob b5 = mockDaoDriver.getBlobFor( o5.getId() );
+
+        mockDaoDriver.putBlobsOnTape(t1.getId(), o1Blobs.get(0), o1Blobs.get(1), o1Blobs.get(2), o2Blobs.get(0), o2Blobs.get(1), b3, b4, b5);
+
+        mockDaoDriver.updateAllBeans(
+                BeanFactory.newBean( TapePartition.class ).setQuiesced( Quiesced.NO ),
+                TapePartition.QUIESCED );
+        final List< JobEntry> jobEntries = new ArrayList<>();
+
+
+        Map<UUID, Blob> blobMap = new HashMap<>();
+        blobMap.put(o1Blobs.get(0).getId(), o1Blobs.get(0));
+        blobMap.put(o1Blobs.get(1).getId(), o1Blobs.get(1));
+        blobMap.put(o1Blobs.get(2).getId(), o1Blobs.get(2));
+        blobMap.put(o2Blobs.get(0).getId(), o2Blobs.get(0));
+        blobMap.put(o2Blobs.get(1).getId(), o2Blobs.get(1));
+        blobMap.put(b3.getId(), b3);
+        blobMap.put(b4.getId(), b4);
+        blobMap.put(b5.getId(), b5);
+
+        for (UUID blobId : blobMap.keySet()) {
+            final JobEntry entry = BeanFactory.newBean(JobEntry.class).setBlobId(blobId);
+            jobEntries.add( entry);
+        }
+
+        final JobCreator jobCreator = new JobCreatorImpl(
+                cacheManager,
+                dbSupport.getServiceManager(),
+                new MockDs3ConnectionFactory(),
+                InterfaceProxyFactory.getProxy( JobProgressManager.class, null ),
+                blobStores(),
+                10,
+                11L);
+        assertEquals(10 * 1024L * 1024,  jobCreator.getPreferredBlobSizeInBytes(), "Should notta limited preferred chunk size by preferred blob size.");
+        UUID jobId = UUID.randomUUID();
+        BaseCreateJobParams<?> params = BeanFactory.newBean( CreateGetJobParams.class )
+                .setName( "jobImplTest" )
+                .setUserId( bucket.getUserId() )
+                .setBlobIds( blobMap.keySet().toArray(new UUID[0]) );
+        jobCreator.createGetOrVerifyJob(params, jobId, JobRequestType.GET, JobChunkClientProcessingOrderGuarantee.IN_ORDER, jobEntries);
+
+        // Verify that sequential chunk numbers have blobs with ascending byte offsets
+        jobEntries.sort(Comparator.comparingLong(JobEntry::getChunkNumber));
+
+        long lastByteOffset = 0L;
+        for (final JobEntry entry : jobEntries) {
+            final Blob curBlob = blobMap.get(entry.getBlobId());
+            assertNotNull(curBlob);
+            assertTrue(curBlob.getByteOffset() >= lastByteOffset, "Blobs should be ordered by byte offset");
+            lastByteOffset = curBlob.getByteOffset();
+        }
+
+        // Verify blob store states
+        final Map<UUID, JobChunkBlobStoreState> expectedBlobStoreStates = new HashMap<>();
+        expectedBlobStoreStates.put(o1Blobs.get(0).getId(), JobChunkBlobStoreState.PENDING);
+        expectedBlobStoreStates.put(o1Blobs.get(1).getId(), JobChunkBlobStoreState.PENDING);
+        expectedBlobStoreStates.put(o1Blobs.get(2).getId(), JobChunkBlobStoreState.COMPLETED);
+        expectedBlobStoreStates.put(o2Blobs.get(0).getId(), JobChunkBlobStoreState.PENDING);
+        expectedBlobStoreStates.put(o2Blobs.get(1).getId(), JobChunkBlobStoreState.PENDING);
+        expectedBlobStoreStates.put(b3.getId(), JobChunkBlobStoreState.PENDING);
+        expectedBlobStoreStates.put(b4.getId(), JobChunkBlobStoreState.COMPLETED);
+        expectedBlobStoreStates.put(b5.getId(), JobChunkBlobStoreState.COMPLETED);
+
+        jobEntries.forEach(entry -> assertEquals(expectedBlobStoreStates.get(entry.getBlobId()), entry.getBlobStoreState()));
+    }
+
     private static Map<PersistenceType, BlobStore> blobStores() {
         return Map.of(
                 PersistenceType.DS3, InterfaceProxyFactory.getProxy(BlobStore.class, null),

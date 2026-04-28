@@ -466,6 +466,47 @@ public class DatabaseUtils {
         }
     }
 
+    private static String savedUnavailableMediaPolicy;
+
+    public static void setUnavailableMediaPolicyDiscouraged() {
+        final String selectSQL = "SELECT unavailable_media_policy FROM ds3.data_path_backend";
+        final String updateSQL = "UPDATE ds3.data_path_backend SET unavailable_media_policy = ?::ds3.unavailable_media_usage_policy";
+
+        try (final Connection connection = getTestDatabaseConnection()) {
+            try (final PreparedStatement selectStatement = connection.prepareStatement(selectSQL);
+                 final ResultSet resultSet = selectStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    savedUnavailableMediaPolicy = resultSet.getString(1);
+                }
+            }
+            try (final PreparedStatement updateStatement = connection.prepareStatement(updateSQL)) {
+                updateStatement.setString(1, "DISCOURAGED");
+                final int rowsAffected = updateStatement.executeUpdate();
+                if (rowsAffected == 0) {
+                    throw new SQLException("Updating unavailable_media_policy failed, no rows affected.");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to set unavailable_media_policy to DISCOURAGED", e);
+        }
+    }
+
+    public static void resetUnavailableMediaPolicy() {
+        if (savedUnavailableMediaPolicy == null) {
+            return;
+        }
+        final String updateSQL = "UPDATE ds3.data_path_backend SET unavailable_media_policy = ?::ds3.unavailable_media_usage_policy";
+        try (final Connection connection = getTestDatabaseConnection();
+             final PreparedStatement statement = connection.prepareStatement(updateSQL)) {
+            statement.setString(1, savedUnavailableMediaPolicy);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to reset unavailable_media_policy", e);
+        } finally {
+            savedUnavailableMediaPolicy = null;
+        }
+    }
+
     public static boolean isBlobCacheEmpty() {
         final String countSQL = "SELECT COUNT(*) FROM planner.blob_cache";
         try (final Connection connection = getTestDatabaseConnection();

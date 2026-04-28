@@ -6,6 +6,8 @@
  ******************************************************************************/
 package com.spectralogic.util.db.manager.frmwrk;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
 import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,10 +15,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.spectralogic.util.db.manager.DataSource;
 import com.spectralogic.util.db.manager.postgres.PostgresDataSource;
 import com.spectralogic.util.db.mockdomain.Teacher;
 import com.spectralogic.util.db.mockservice.CountyService;
@@ -416,6 +421,119 @@ public final class DefaultConnectionPool_Test
     }
     
     
+    @Test
+    public void testTicketsAreNotLeakedWhenEstablishConnectionFails()
+    {
+        // DataSource that throws a few times (transient outage) then heals.
+        final AtomicInteger failuresRemaining = new AtomicInteger( 2 );
+        final DataSource ds = () -> {
+            if ( failuresRemaining.getAndDecrement() > 0 )
+            {
+                throw new RuntimeException( "simulated Postgres outage" );
+            }
+            return newFakeConnection();
+        };
+
+        final int poolSize = 3;
+        final int pollTimeoutMs = 200;
+        final DefaultConnectionPool pool = new DefaultConnectionPool(
+                ds, true, Connection.TRANSACTION_READ_COMMITTED, poolSize, pollTimeoutMs );
+
+        // All three tickets should be usable. The retry-loop inside
+        // the first takeConnection() would have drained extra tickets while
+        // absorbing the 2 failures — a later call would then time out.
+        final Connection c1 = pool.takeConnection();
+        final Connection c2 = pool.takeConnection();
+        final Connection c3 = pool.takeConnection();
+        assertNotNull( c1 );
+        assertNotNull( c2 );
+        assertNotNull( c3 );
+
+        pool.returnConnection( c1 );
+        pool.returnConnection( c2 );
+        pool.returnConnection( c3 );
+        pool.shutdown();
+    }
+
+
+    @Test
+    public void testRetryLoopDoesNotCompoundTicketLeak()
+    {
+        // DataSource that fails until healed via the flag.
+        final AtomicBoolean broken = new AtomicBoolean( true );
+        final DataSource ds = () -> {
+            if ( broken.get() )
+            {
+                throw new RuntimeException( "simulated Postgres outage" );
+            }
+            return newFakeConnection();
+        };
+
+        final int poolSize = 10;
+        final int pollTimeoutMs = 300;
+        final DefaultConnectionPool pool = new DefaultConnectionPool(
+                ds, true, Connection.TRANSACTION_READ_COMMITTED, poolSize, pollTimeoutMs );
+
+        // Force one failed takeConnection() to completion. With Bug #2, its
+        // retry loop would drain many tickets before the overall timeout.
+        try
+        {
+            pool.takeConnection();
+            fail( "takeConnection() should have thrown — DataSource is broken." );
+        }
+        catch ( final RuntimeException expected )
+        {
+        }
+
+        // Heal the DS. All poolSize tickets should still be available; with the
+        // bug, some subset of these takes would time out because tickets leaked.
+        broken.set( false );
+        final Set< Connection > taken = new HashSet<>();
+        for ( int i = 0; i < poolSize; ++i )
+        {
+            taken.add( pool.takeConnection() );
+        }
+        assertEquals( poolSize, taken.size() );
+
+        for ( final Connection c : taken )
+        {
+            pool.returnConnection( c );
+        }
+        pool.shutdown();
+    }
+
+
+    private static Connection newFakeConnection()
+    {
+        final InvocationHandler h = new InvocationHandler()
+        {
+            public Object invoke( final Object proxy, final java.lang.reflect.Method method,
+                                  final Object[] args )
+            {
+                final String name = method.getName();
+                switch ( name )
+                {
+                    case "isValid":                 return Boolean.TRUE;
+                    case "isClosed":                return Boolean.FALSE;
+                    case "getAutoCommit":           return Boolean.TRUE;
+                    case "getTransactionIsolation": return Integer.valueOf( Connection.TRANSACTION_READ_COMMITTED );
+                    case "setAutoCommit":
+                    case "setTransactionIsolation":
+                    case "close":                   return null;
+                    case "equals":                  return Boolean.valueOf( proxy == args[0] );
+                    case "hashCode":                return Integer.valueOf( System.identityHashCode( proxy ) );
+                    case "toString":                return "FakeConn@" + System.identityHashCode( proxy );
+                    default: throw new UnsupportedOperationException( name );
+                }
+            }
+        };
+        return (Connection) Proxy.newProxyInstance(
+                Connection.class.getClassLoader(),
+                new Class<?>[] { Connection.class },
+                h );
+    }
+
+
     @Test
     public void testReservationsNotAllowedWhenPoolUnbounded()
     {

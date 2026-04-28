@@ -50,6 +50,34 @@ public class S3TargetWorkAggregationUtils_Test {
         assertEquals(BlobStoreTaskPriority.HIGH, result.get(0).getPriority(), "LocalWriteDirective should be sorted");
     }
 
+    @Test
+    public void testDiscoverS3TargetWorkAggregatedSingleOversizedEntryStillReturnsDirective() {
+        final S3Target target = mockDaoDriver.createS3Target("s3target");
+        final MockDiskManager mockDiskManager = new MockDiskManager( dbSupport.getServiceManager() );
+        mockDaoDriver.createS3DataReplicationRule(
+                dp.getId(), DataReplicationRuleType.PERMANENT, target.getId() );
+
+        // A single blob larger than MAX_BYTES_PER_TASK (100 GB).
+        final long oversizedLength = 100L * 1024L * 1024L * 1024L + 1L;
+        final S3Object bigObj = mockDaoDriver.createObject( bucket.getId(), "bigobj", oversizedLength );
+        final Blob bigBlob = mockDaoDriver.getBlobFor( bigObj.getId() );
+
+        final Job job = mockDaoDriver.createJob( bucket.getId(), null, JobRequestType.PUT );
+        mockDaoDriver.updateBean(job.setPriority(BlobStoreTaskPriority.NORMAL), Job.PRIORITY);
+        final JobEntry entry = mockDaoDriver.createJobEntry( job.getId(), bigBlob );
+
+        mockDaoDriver.createReplicationTargetsForChunk(S3DataReplicationRule.class, S3BlobDestination.class, entry.getId());
+        mockDaoDriver.markBlobInCache( bigBlob.getId() );
+        mockDiskManager.blobLoadedToCache( bigBlob.getId() );
+
+        final List<IODirective> result = S3TargetWorkAggregationUtils.discoverS3TargetWorkAggregated(dbSupport.getServiceManager());
+
+        assertNotNull(result);
+        assertEquals(1, result.size(), "A single oversized entry should still produce a directive");
+        assertEquals(1, result.get(0).getEntries().size(), "Directive should contain the oversized entry");
+        assertEquals(entry.getId(), result.get(0).getEntries().iterator().next().getId());
+    }
+
     private static DatabaseSupport dbSupport = DatabaseSupportFactory.getSupport(DaoDomainsSeed.class, DaoServicesSeed.class);
     private MockDaoDriver mockDaoDriver = new MockDaoDriver( dbSupport );
     private static final String DATA_POLICY_TAPE_DUAL_COPY_NAME = "Dual Copy on Tape";

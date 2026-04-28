@@ -110,11 +110,13 @@ public final class DefaultConnectionPool extends BaseShutdownable implements Con
     
     
     private Connection takeConnection(
-            int sleepTimeBetweenRetries, 
+            int sleepTimeBetweenRetries,
             final int timeoutGettingConnectionInMillis )
     {
         Connection retval = null;
-        final MonitoredWork work = new MonitoredWork( 
+        final long deadlineMillis =
+                System.currentTimeMillis() + timeoutGettingConnectionInMillis;
+        final MonitoredWork work = new MonitoredWork(
                 StackTraceLogging.NONE, "Acquire SQL connection (max is " + m_maxConnections + ")" );
         try
         {
@@ -124,19 +126,27 @@ public final class DefaultConnectionPool extends BaseShutdownable implements Con
                 {
                     if ( null != m_connectionReservationQueue )
                     {
-                        if ( null == m_connectionReservationQueue.poll( 
-                                timeoutGettingConnectionInMillis,
-                                TimeUnit.MILLISECONDS ) )
+                        final long remaining = deadlineMillis - System.currentTimeMillis();
+                        if ( 0 >= remaining
+                                || null == m_connectionReservationQueue.poll(
+                                        remaining, TimeUnit.MILLISECONDS ) )
                         {
-                            throw new RuntimeException( 
-                                    "Failed to acquire a SQL connection within " 
+                            throw new RuntimeException(
+                                    "Failed to acquire a SQL connection within "
                                             + timeoutGettingConnectionInMillis + "ms." );
                         }
                     }
-                    
+
                     retval = takeConnectionInternal();
                     if ( null == retval )
                     {
+                        // establishConnection() failed; return the ticket we polled above
+                        // so a transient DB outage doesn't permanently shrink the pool.
+                        // The overall deadline above bounds total retry time.
+                        if ( null != m_connectionReservationQueue )
+                        {
+                            m_connectionReservationQueue.add( new Object() );
+                        }
                         Thread.sleep( sleepTimeBetweenRetries );
                         sleepTimeBetweenRetries += 50;
                     }

@@ -85,7 +85,7 @@ public final class MockHttpRequestSupport
                                 
                                 if ( UUID.class == method.getAnnotation( RpcMethodReturnType.class ).value() )
                                 {
-                                    if ( method.getName().contains( "Get" ) )
+                                    if ( method.getName().contains( "Get" ) || method.getName().equals( "createIomJob" ) )
                                     {
                                         final CreateGetJobParams params = (CreateGetJobParams)args[ 0 ];
                                         return new RpcResponse<>( fakeCreateGetJob(

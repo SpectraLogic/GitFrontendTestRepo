@@ -101,6 +101,19 @@ public class Ds3ApiHelpers {
         }
     }
 
+    public static void unQuiescePartitions(Ds3Client client) throws IOException {
+        GetTapePartitionsSpectraS3Response response = client.getTapePartitionsSpectraS3(new GetTapePartitionsSpectraS3Request());
+        List<TapePartition> partitions = response.getTapePartitionListResult().getTapePartitions();
+        int index = 0;
+        for (final com.spectralogic.ds3client.models.TapePartition partition : partitions) {
+            ModifyTapePartitionSpectraS3Request req = new ModifyTapePartitionSpectraS3Request(partition.getName());
+            if (partition.getQuiesced().equals(Quiesced.YES)) {
+                req.withQuiesced(Quiesced.NO);
+                client.modifyTapePartitionSpectraS3(req);
+            }
+        }
+    }
+
     public static void keepPartitionsWriteOnly(Ds3Client client) throws IOException {
         GetTapePartitionsSpectraS3Response response = client.getTapePartitionsSpectraS3(new GetTapePartitionsSpectraS3Request());
         List<TapePartition> partitions = response.getTapePartitionListResult().getTapePartitions();
@@ -214,6 +227,19 @@ public class Ds3ApiHelpers {
 
         }
         return blobCount;
+    }
+
+    public static UnavailableMediaUsagePolicy setMediaPolicy(Ds3Client client,
+                                                             UnavailableMediaUsagePolicy newPolicy) throws IOException {
+        GetDataPathBackendSpectraS3Response current =
+                client.getDataPathBackendSpectraS3(new GetDataPathBackendSpectraS3Request());
+        UnavailableMediaUsagePolicy previous =
+                current.getDataPathBackendResult().getUnavailableMediaPolicy();
+
+        ModifyDataPathBackendSpectraS3Request modify = new ModifyDataPathBackendSpectraS3Request();
+        modify.withUnavailableMediaPolicy(newPolicy);
+        client.modifyDataPathBackendSpectraS3(modify);
+        return previous;
     }
 
     public static BulkObject getBlobTape(Ds3Client client, UUID tapeId, UUID blobId) throws IOException, JSONException {

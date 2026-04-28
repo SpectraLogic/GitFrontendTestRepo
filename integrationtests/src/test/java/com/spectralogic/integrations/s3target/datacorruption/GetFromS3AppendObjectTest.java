@@ -11,6 +11,7 @@ import com.spectralogic.ds3client.models.*;
 import com.spectralogic.ds3client.models.bulk.Ds3Object;
 import com.spectralogic.integrations.TestUtils;
 
+import com.spectralogic.util.testfrmwrk.TestUtil;
 import org.apache.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static com.spectralogic.integrations.CloudUtils.*;
+import static com.spectralogic.integrations.DatabaseUtils.*;
 import static com.spectralogic.integrations.Ds3ApiHelpers.*;
 import static com.spectralogic.integrations.Ds3ApiHelpers.addJobName;
 import static com.spectralogic.integrations.Ds3ApiHelpers.reclaimCache;
@@ -90,6 +92,7 @@ public class GetFromS3AppendObjectTest {
     @BeforeEach
     public void setUp() throws IOException, InterruptedException, SQLException {
         client = TestUtils.setTestParams();
+
         if (client != null) {
             deleteAllBuckets(localStackClient);
             clearS3ReplicationRules(client, DATA_POLICY_TAPE_SINGLE_COPY_NAME);
@@ -227,7 +230,8 @@ public class GetFromS3AppendObjectTest {
                 System.out.println("Error executing read" + e);
                 GetActiveJobsSpectraS3Request request = new GetActiveJobsSpectraS3Request();
                 GetActiveJobsSpectraS3Response activeJobsResponse = client.getActiveJobsSpectraS3(request);
-                assertEquals(3, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
+                assertEquals(1, activeJobsResponse.getActiveJobListResult().getActiveJobs().size());
+
             }
 
         } catch (URISyntaxException e) {

@@ -54,65 +54,32 @@ public final class StageObjectsJobRequestHandler_Test
     }
     
     
+
     @Test
-    public void testGetObjectsRespondsCorrectlyWhenUserAuthentication()
+    public void testCreateStageJobCreatesStageJobWhenNoOptionalParametersSpecified()
     {
         final MockHttpRequestSupport support = new MockHttpRequestSupport();
+
         final MockDaoDriver mockDaoDriver = new MockDaoDriver( support.getDatabaseSupport() );
-        final UUID jasonId = mockDaoDriver.createUser( "jason" ).getId();
-        final UUID barryId = mockDaoDriver.createUser( "barry" ).getId();
-        final UUID bucketJasonId = mockDaoDriver.createBucket( jasonId, "bucketjason" ).getId();
-        final UUID bucketBarryId = mockDaoDriver.createBucket( barryId, "bucketbarry" ).getId();
-        final UUID adminId = mockDaoDriver.createUser( "admin" ).getId();
-        mockDaoDriver.addUserMemberToGroup( 
-                support.getDatabaseSupport().getServiceManager().getService( GroupService.class )
-                .getBuiltInGroup( BuiltInGroup.ADMINISTRATORS ).getId(), adminId );
-        mockDaoDriver.addBucketAcl( bucketJasonId, null, jasonId, BucketAclPermission.LIST );
-        mockDaoDriver.addBucketAcl( bucketBarryId, null, jasonId, BucketAclPermission.LIST );
-        mockDaoDriver.addBucketAcl( bucketJasonId, null, barryId, BucketAclPermission.LIST );
-        mockDaoDriver.addBucketAcl( bucketBarryId, null, barryId, BucketAclPermission.LIST );
+        mockDaoDriver.createObject( null, "o1" );
+        mockDaoDriver.createObject( null, "o2" );
+        mockDaoDriver.grantOwnerPermissionsToEveryUser();
 
-        mockDaoDriver.createObject( bucketJasonId, "jasonsong.mp3" );
-        mockDaoDriver.createObject( bucketJasonId, "jasonmusic.mp3" );
-        mockDaoDriver.createObject( bucketJasonId, "jasoncover.jpg" );
-        mockDaoDriver.createObject( bucketBarryId, "barrysong.mp3" );
-        mockDaoDriver.createObject( bucketBarryId, "barrymusic.mp3" );
-        mockDaoDriver.createObject( bucketBarryId, "barrycover.jpg" );
-
-        MockHttpRequestDriver driver = new MockHttpRequestDriver( 
+        final byte[] requestPayload = (
+                "<Objects>"
+                + "<Object Name=\"o1\" />"
+                + "<Object NAME=\"o2\" />"
+                + "</Objects>" ).getBytes( Charset.forName( "UTF-8" ) );
+        final MockHttpRequestDriver driver = new MockHttpRequestDriver(
                 support,
                 true,
-                new MockUserAuthorizationStrategy( "jason" ),
-                RequestType.GET, 
-                "_rest_/object" ).addHeader(
-                        S3HeaderType.NAMING_CONVENTION,
-                        NamingConventionType.CAMEL_CASE_WITH_FIRST_LETTER_UPPERCASE.name() )
-                        .addParameter( "name", "%mp3" );
+                new MockUserAuthorizationStrategy( MockDaoDriver.DEFAULT_USER_NAME ),
+                RequestType.PUT,
+                "_rest_/bucket/" + MockDaoDriver.DEFAULT_BUCKET_NAME );
+        driver.addParameter( "operation", "start_bulk_stage" );
+        driver.setRequestPayload( requestPayload );
         driver.run();
         driver.assertHttpResponseCodeEquals( 200 );
-        assertTrue(driver.getResponseToClientAsString().contains( "jasonsong" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "jasonmusic" ), "Shoulda notta filtered by user.");
-        assertFalse(driver.getResponseToClientAsString().contains( "jasoncover" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "barrysong" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "barrymusic" ), "Shoulda notta filtered by user.");
-        assertFalse(driver.getResponseToClientAsString().contains( "barrycover" ), "Shoulda notta filtered by user.");
-
-        driver = new MockHttpRequestDriver( 
-                support,
-                true,
-                new MockUserAuthorizationStrategy( "barry" ),
-                RequestType.GET, 
-                "_rest_/object" ).addHeader(
-                        S3HeaderType.NAMING_CONVENTION,
-                        NamingConventionType.CAMEL_CASE_WITH_FIRST_LETTER_UPPERCASE.name() )
-                        .addParameter( "name", "%mp3" );
-        driver.run();
-        driver.assertHttpResponseCodeEquals( 200 );
-        assertTrue(driver.getResponseToClientAsString().contains( "jasonsong" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "jasonmusic" ), "Shoulda notta filtered by user.");
-        assertFalse(driver.getResponseToClientAsString().contains( "jasoncover" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "barrysong" ), "Shoulda notta filtered by user.");
-        assertTrue(driver.getResponseToClientAsString().contains( "barrymusic" ), "Shoulda notta filtered by user.");
-        assertFalse(driver.getResponseToClientAsString().contains( "barrycover" ), "Shoulda notta filtered by user.");
+        driver.assertResponseToClientContains( "ChunkClientProcessingOrderGuarantee=\"NONE\"" );
     }
 }

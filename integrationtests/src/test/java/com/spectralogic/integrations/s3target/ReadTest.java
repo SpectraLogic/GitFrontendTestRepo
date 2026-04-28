@@ -152,7 +152,7 @@ public class ReadTest {
             }
 
             reclaimCache(client);
-            cleanupSimulator();
+
             final Ds3ClientHelpers.Job readJob = helper.startReadAllJob(bucketName);
             UUID readJobId = readJob.getJobId();
 

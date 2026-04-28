@@ -1,48 +1,38 @@
 FROM gradle:8.7-jdk21 as builder
 
 ENV SIMULATOR_HOME="/usr/local/bluestorm/frontend/simulator"
-RUN mkdir -p /app/build/runtime-libs
 WORKDIR /app
-COPY simulator/build.gradle  ./
-COPY simulator/gradle.properties  ./
-RUN gradle dependencies --no-daemon
 COPY . .
-RUN gradle build -x test --no-daemon
-RUN gradle copyRuntimeLibs --no-daemon  # Collects JARs
-# Update package lists and install ZFS utilities
-RUN apt-get update && apt-get install -y zfsutils-linux
-# Use a base image with Java
+# Build all modules (so target.jar exists for the simulator runtime classpath)
+# then collect simulator's runtime classpath into /app/build/runtime-libs/.
+RUN ./gradlew build :simulator:copyRuntimeLibs -x test --no-daemon
+
+# STAGE 2: Final Runtime Image
 FROM tomcat:9.0-jdk21
 
-
-# Update package lists and install vim
-RUN apt-get update && apt-get install -y vim
-
-# Install PostgreSQL Client
-RUN apt-get update && apt-get install -y postgresql-client
+# Install runtime tools (vim, postgresql-client, zfsutils for simulator volume management).
+# One apt invocation; cache cleared to keep the image lean.
+RUN apt-get update && \
+    apt-get install -y vim postgresql-client zfsutils-linux && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
 ENV SIMULATOR_HOME="/usr/local/bluestorm/frontend/simulator"
 ENV SIMULATOR_FILE="simulator-0.0.4-SNAPSHOT.jar"
 ENV DATAPLANNER_PATH="${SIMULATOR_HOME}/bin/${SIMULATOR_FILE}"
-
 ENV simulator_out_log="/var/log/simulator-startup.log"
-ENV simulator_java_opts="" 
-
+ENV simulator_java_opts=""
 
 COPY docker/entrypoint-simulator.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Create necessary directories
-RUN mkdir -p ${SIMULATOR_HOME}/bin
-RUN mkdir -p /var/log && chmod 777 /var/log
-
-
+RUN mkdir -p ${SIMULATOR_HOME}/bin /var/log && chmod 777 /var/log
 
 COPY --from=builder /app/build/runtime-libs/ /usr/local/bluestorm/frontend/dataplanner/bin/lib/
-# Copy the DataPlanner JAR and tapesystem config file
+# Legacy lib/ flatDir jars (not on mavenCentral, e.g. ds3-sdk) — copied from host
 COPY lib /usr/local/bluestorm/frontend/dataplanner/bin/lib
-COPY simulator/build/libs/simulator-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/simulator/bin/
+COPY --from=builder /app/simulator/build/libs/simulator-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/simulator/bin/
 COPY docker/tapesystem.properties /etc/spectralogic/
 COPY DataPlanner/src/test/resources/etc/spectra/serial_number /etc/spectra/
 COPY DataPlanner/src/test/resources/etc/spectra/pf-s3port.conf /etc/spectra/
@@ -52,14 +42,13 @@ COPY docker/simulator_data /etc/spectra/
 COPY docker/version.dataplanner.conf /etc/version.conf
 RUN mkdir -p  /var/folders/T/MockCacheFilesystemDriver13621442353042389204
 COPY simulator/src/main/resources/log4j.xml /usr/local/bluestorm/frontend/simulator/bin/
-COPY util/build/libs/util-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib
-COPY common/build/libs/common-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib
-COPY target/build/libs/target-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib
+COPY --from=builder /app/util/build/libs/util-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib/
+COPY --from=builder /app/common/build/libs/common-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib/
+COPY --from=builder /app/target/build/libs/target-0.0.4-SNAPSHOT.jar /usr/local/bluestorm/frontend/dataplanner/bin/lib/
 COPY simulator/src/main/resources/log4j.xml /app/log4j.xml
 
 # Set working directory
 WORKDIR ${SIMULATOR_HOME}/bin/
-
 
 # Start simulator using java -jar
 ENTRYPOINT ["/app/entrypoint.sh"]

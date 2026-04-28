@@ -534,7 +534,6 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
         Set<UUID> blobIds = BeanUtils.extractPropertyValues( blobs, Identifiable.ID );
         final GetByPhysicalPlacementDataOrderingStrategy placement = getPhysicalPlacementOrderingStrategy(blobIds, false);
         Set<UUID> unavailableBlobIds = placement.getUnavailableBlobs();
-        LOG.info("ASHA:::::DEBUG-----IOM removeUnavailableBlobs: " + unavailableBlobIds.size() + " blobs are unavailable");
         final Set< Blob > missingBlobs = new HashSet<>();
         for ( final Blob b : blobs )
         {

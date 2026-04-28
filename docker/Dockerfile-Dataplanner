@@ -1,31 +1,23 @@
 # STAGE 1: Build Stage (Gradle)
-# Using a Gradle image to resolve all external dependencies and build internal modules
+# Build the DataPlanner jar inside Docker so the deployed artifact always
+# matches current sources, and produce a single coherent runtime classpath
+# via :DataPlanner:copyRuntimeLibs.
 FROM gradle:8.5-jdk21 AS build-stage
 
 WORKDIR /home/gradle/project
-# Copy all project files into the build container
 COPY --chown=gradle:gradle . .
 
-# 1. Build the project modules (DataPlanner, util, common, target)
-# 2. Use a custom task or script logic to collect all external JARs into a single 'lib-all' folder
-RUN ./gradlew :DataPlanner:assemble :util:assemble :common:assemble :target:assemble --no-daemon && \
-    mkdir -p /home/gradle/lib-all && \
-    # Helper: Find all runtime dependency JARs from Gradle cache
-    find /home/gradle/.gradle/caches/modules-2/files-2.1 -name "*.jar" -exec cp {} /home/gradle/lib-all/ \; && \
-
-    if [ -d "lib" ]; then cp lib/*.jar /home/gradle/lib-all/; fi
+RUN ./gradlew :DataPlanner:assemble :DataPlanner:copyRuntimeLibs --no-daemon
 
 # STAGE 2: Final Runtime Image
 FROM tomcat:9.0-jdk21
 
-# Add the 'contrib' and 'non-free' repositories for specific Linux tools
-RUN sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list
-
-RUN apt-get update && \
-    apt-get install -y vim postgresql-client zfsutils-linux && \
+# Add 'contrib' and 'non-free' repos for specific Linux tools, then install
+# everything we need in one apt invocation and clear the apt cache.
+RUN sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y vim postgresql-client zfsutils-linux ntpdate && \
     rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y ntpdate
 
 # Set environment variables
 ENV DATAPLANNER_HOME="/usr/local/bluestorm/frontend/dataplanner"
@@ -38,15 +30,12 @@ RUN mkdir -p ${DATAPLANNER_HOME}/bin/lib /var/log /app /etc/spectralogic /etc/sp
     chmod 777 /var/log
 
 # --- COPY FROM BUILD STAGE ---
-
-# 1. Copy the External Libraries (Azure, AWS, Awaitility, etc.) resolved by Gradle
-COPY --from=build-stage /home/gradle/lib-all/ ${DATAPLANNER_HOME}/bin/lib/
-
-# 2. Copy Internal Module JARs built during the build stage
+# The runtime classpath produced by :DataPlanner:copyRuntimeLibs already
+# contains all external deps + the transitively-resolved internal module
+# jars (util, common, target). One COPY replaces the previous gradle-cache
+# dump and the four separate per-module COPYs.
+COPY --from=build-stage /home/gradle/project/DataPlanner/build/runtime-libs/ ${DATAPLANNER_HOME}/bin/lib/
 COPY --from=build-stage /home/gradle/project/DataPlanner/build/libs/${DATAPLANNER_FILE} ${DATAPLANNER_HOME}/bin/
-COPY --from=build-stage /home/gradle/project/util/build/libs/util-*.jar ${DATAPLANNER_HOME}/bin/lib/
-COPY --from=build-stage /home/gradle/project/common/build/libs/common-*.jar ${DATAPLANNER_HOME}/bin/lib/
-COPY --from=build-stage /home/gradle/project/target/build/libs/target-*.jar ${DATAPLANNER_HOME}/bin/lib/
 
 # --- COPY LOCAL CONFIGS ---
 COPY docker/entrypoint-dataplanner.sh /app/entrypoint.sh
