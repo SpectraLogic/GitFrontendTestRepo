@@ -54,6 +54,7 @@ import com.spectralogic.util.shutdown.BaseShutdownable;
 import com.spectralogic.util.thread.RecurringRunnableExecutor;
 
 import static com.spectralogic.s3.common.dao.service.composite.IomService.MAX_BLOBS_IN_IOM_JOB;
+import com.spectralogic.util.tunables.Tunables;
 
 
 public class IomDriverImpl extends BaseShutdownable implements IomDriver, NotificationListener {
@@ -186,7 +187,7 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
     private void createIomJobs() {
         //NOTE: we check once here to avoid unnecessary querying, and once later to stop looping once we
         //hit the max number of migrations
-        if (MAX_CONCURRENT_DATA_MIGRATIONS <=
+        if (Tunables.iomDriverMaxConcurrentDataMigrations() <=
                 m_serviceManager.getRetriever(DataMigration.class).getCount()) {
             return;
         }
@@ -320,7 +321,7 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
 
     private boolean createIomGetJob(Set<Blob> batch, Bucket bucket, User admin, DataPersistenceRule rule) {
         int dataMigrations = m_serviceManager.getRetriever(DataMigration.class).getCount();
-        if (MAX_CONCURRENT_DATA_MIGRATIONS <= dataMigrations) {
+        if (Tunables.iomDriverMaxConcurrentDataMigrations() <= dataMigrations) {
             LOG.info("IOM too many data migrations running: " + dataMigrations);
             return false;
         }
@@ -367,7 +368,7 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
                 bucket.getDataPolicyId())) {
 
             for (final Set<Blob> batch : blobs) {
-                if (MAX_CONCURRENT_DATA_MIGRATIONS <=
+                if (Tunables.iomDriverMaxConcurrentDataMigrations() <=
                         m_serviceManager.getRetriever(DataMigration.class).getCount()) {
                     break;
                 }
@@ -549,7 +550,7 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
 
         if (!unavailableBlobIds.isEmpty()) {
             // The blobs here are not available in any read targets.
-            if ( m_missingBlobIdsDuration.getElapsedMinutes() > KNOWN_MISSING_BLOBS_RESET_IN_MINUTES )
+            if ( m_missingBlobIdsDuration.getElapsedMinutes() > Tunables.iomDriverKnownMissingBlobsResetInMinutes() )
             {
                 m_missingBlobIdsDuration.reset();
                 m_knownMissingBlobIds.clear();
@@ -617,8 +618,6 @@ public class IomDriverImpl extends BaseShutdownable implements IomDriver, Notifi
 	private final JobProgressManager m_jobProgressManager;
 	private final static Logger LOG = Logger.getLogger( IomDriverImpl.class );
 	private final static String ADMIN_USER_NAME = "Administrator";
-	private final static int MAX_CONCURRENT_DATA_MIGRATIONS = 10;
     private final Set<UUID> m_knownMissingBlobIds = new HashSet<>();
     private final Duration m_missingBlobIdsDuration = new Duration();
-    private final static int KNOWN_MISSING_BLOBS_RESET_IN_MINUTES = 60 * 12;
 }

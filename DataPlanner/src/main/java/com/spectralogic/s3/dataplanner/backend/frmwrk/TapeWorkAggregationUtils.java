@@ -15,6 +15,8 @@ import org.apache.log4j.Logger;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class TapeWorkAggregationUtils {
 
     public static boolean anyTapeIOWorkOfPriority(final BeansServiceManager serviceManager, final BlobStoreTaskPriority exactPriority) {
@@ -83,9 +85,9 @@ public class TapeWorkAggregationUtils {
         long taskSize = 0;
 
         for (final LocalJobEntryWork workEntry : work) {
-            long maxTaskSize = (key.minimizeSpanningAcrossMedia) ? MINSPANNING_TASK_SIZE : MAX_BYTES_PER_TASK;
+            long maxTaskSize = (key.minimizeSpanningAcrossMedia) ? Tunables.tapeWorkAggregationUtilsMinspanningTaskSize() : Tunables.workAggregationMaxBytesPerTask();
 
-            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > maxTaskSize || entries.size() >= MAX_ENTRIES_PER_TASK)) {
+            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > maxTaskSize || entries.size() >= Tunables.workAggregationMaxEntriesPerTask())) {
                 break;
             }
             entries.add(workEntry);
@@ -215,8 +217,5 @@ public class TapeWorkAggregationUtils {
             boolean minimizeSpanningAcrossMedia
     ) {}
 
-    private static final int MAX_ENTRIES_PER_TASK = 100000;
-    private static final long MAX_BYTES_PER_TASK = 100L * 1024L * 1024L * 1024L; //100GB
     private static final Logger LOG = Logger.getLogger(TapeWorkAggregationUtils.class);
-    private static final long MINSPANNING_TASK_SIZE =  1024L * 1024L * 1024L * 1024L;
 }

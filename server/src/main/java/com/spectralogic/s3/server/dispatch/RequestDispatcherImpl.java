@@ -47,8 +47,10 @@ import com.spectralogic.util.bean.BeanFactory;
 import com.spectralogic.util.db.manager.DataManager;
 import com.spectralogic.util.db.manager.DataSource;
 import com.spectralogic.util.db.manager.postgres.PostgresDataManager;
+import com.spectralogic.util.db.domain.service.KeyValueService;
 import com.spectralogic.util.db.service.BeansServiceManagerImpl;
 import com.spectralogic.util.db.service.api.BeansServiceManager;
+import com.spectralogic.util.tunables.Tunables;
 import com.spectralogic.util.exception.ExceptionUtil;
 import com.spectralogic.util.exception.FailureType;
 import com.spectralogic.util.exception.FailureTypeObservable;
@@ -94,9 +96,10 @@ public class RequestDispatcherImpl implements RequestDispatcher
         final NotificationEventDispatcher notificationEventDispatcher =
                 new HttpNotificationEventDispatcher( notificationEventDispatcherWp );
         final BeansServiceManager serviceManager = BeansServiceManagerImpl.create(
-                notificationEventDispatcher, 
+                notificationEventDispatcher,
                 dataManager,
                 CollectionFactory.toSet( DaoServicesSeed.class ) );
+        Tunables.install( serviceManager.getService( KeyValueService.class ) );
         return serviceManager;
     }
     

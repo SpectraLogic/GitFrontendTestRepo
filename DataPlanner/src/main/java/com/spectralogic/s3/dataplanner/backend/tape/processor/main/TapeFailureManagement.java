@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class TapeFailureManagement {
 
     public TapeFailureManagement(final TapeFailureService tapeFailureService,
@@ -261,11 +263,11 @@ public class TapeFailureManagement {
     }
 
     synchronized private void ageOutOldFailures() {
-        final long earliestAllowedDate = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(MAX_FAILURE_AGE_IN_HOURS);
+        final long earliestAllowedDate = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(Tunables.tapeFailureManagementMaxFailureAgeInHours());
         final boolean agedOutForTape = m_failuresPotentiallyCausedByTape.values().removeIf(failure -> failure.getDate().getTime() < earliestAllowedDate);
         final boolean agedOutForDrive = m_failuresPotentiallyCausedByDrive.values().removeIf(failure -> failure.getDate().getTime() < earliestAllowedDate);
         if (agedOutForTape || agedOutForDrive) {
-            LOG.info("Aged out tape failures that occurred over " + MAX_FAILURE_AGE_IN_HOURS + " hours ago.");
+            LOG.info("Aged out tape failures that occurred over " + Tunables.tapeFailureManagementMaxFailureAgeInHours() + " hours ago.");
         }
     }
 
@@ -276,7 +278,6 @@ public class TapeFailureManagement {
     private final Multimap<UUID, TapeFailure> m_failuresPotentiallyCausedByDrive = MultimapBuilder.hashKeys().arrayListValues().build();
     private final RecurringRunnableExecutor m_failureExpirationExecutor =
             new RecurringRunnableExecutor(this::ageOutOldFailures, TimeUnit.MINUTES.toMillis(5));
-    private final static int MAX_FAILURE_AGE_IN_HOURS = 24;
     private final static Logger LOG = Logger.getLogger( TapeFailureManagement.class );
 
 

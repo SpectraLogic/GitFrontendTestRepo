@@ -19,6 +19,8 @@ import com.spectralogic.util.exception.FailureTypeObservableException;
 import com.spectralogic.util.exception.GenericFailure;
 import com.spectralogic.util.lang.Validations;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class GroupMembershipCalculator
 {
     public GroupMembershipCalculator( final BeansRetrieverManager brm )
@@ -63,7 +65,7 @@ public final class GroupMembershipCalculator
         m_memberships = new HashMap<>();
         try
         {
-            new EffectiveMembershipCalculator().calculate( MAX_RECURSIVE_DEPTH_ALLOWED );
+            new EffectiveMembershipCalculator().calculate( Tunables.groupMembershipCalculatorMaxRecursiveDepthAllowed() );
         }
         catch ( final RuntimeException ex )
         {
@@ -162,5 +164,4 @@ public final class GroupMembershipCalculator
     private final Set< GroupMember > m_addedMembers = new HashSet<>();
     private final BeansRetrieverManager m_brm;
     
-    private final static int MAX_RECURSIVE_DEPTH_ALLOWED = 5;
 }

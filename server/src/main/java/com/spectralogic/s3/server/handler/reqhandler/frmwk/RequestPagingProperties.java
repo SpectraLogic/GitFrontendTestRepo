@@ -13,6 +13,8 @@ import com.spectralogic.s3.server.request.api.DS3Request;
 import com.spectralogic.s3.server.request.api.RequestParameterType;
 import com.spectralogic.util.exception.GenericFailure;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class RequestPagingProperties
 {
     
@@ -57,16 +59,16 @@ public class RequestPagingProperties
                             ", but no more than one of these at the same time." );
         }
         
-        if ( ( null != pageLength ) && ( MAX_PAGE_LENGTH < pageLength ) )
+        if ( ( null != pageLength ) && ( Tunables.requestPagingPropertiesMaxPageLength() < pageLength ) )
         {
             throw new S3RestException( GenericFailure.BAD_REQUEST,
-                    "Maximum page length that may be requested is " + MAX_PAGE_LENGTH + ", but " + pageLength +
+                    "Maximum page length that may be requested is " + Tunables.requestPagingPropertiesMaxPageLength() + ", but " + pageLength +
                             " was requested." );
         }
     
         if ( null == pageLength )
         {
-            pageLength = MAX_PAGE_LENGTH;
+            pageLength = Tunables.requestPagingPropertiesMaxPageLength();
         }
         
         if ( lastPage )
@@ -110,7 +112,6 @@ public class RequestPagingProperties
     }
     
     
-    private static final int MAX_PAGE_LENGTH = 1000;
     private UUID pageStartMarker = null;
     private Integer pageOffset = null;
     private Integer pageLength = null;

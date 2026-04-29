@@ -49,6 +49,8 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class CacheManagerImpl implements CacheManager
 {
     public CacheManagerImpl( final BeansServiceManager serviceManager, final TierExistingCache tierExistingCache ) {
@@ -347,7 +349,7 @@ public class CacheManagerImpl implements CacheManager
 
     public long getMaximumChunkSizeInBytes()
     {
-        return Math.min( MAX_CHUNK_SIZE, getTotalCapacityInBytes() );
+        return Math.min( Tunables.cacheManagerMaxChunkSize(), getTotalCapacityInBytes() );
     }
 
 
@@ -689,5 +691,4 @@ public class CacheManagerImpl implements CacheManager
     private final CacheThrottleManager m_cacheThrottleManager;
 
     private final static Logger LOG = Logger.getLogger( CacheManagerImpl.class );
-    public final static long MAX_CHUNK_SIZE = 1024L * 1024 * 1024 * 1024;
 }

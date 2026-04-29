@@ -77,6 +77,8 @@ import com.spectralogic.util.lang.iterate.CloseableIterable;
 import com.spectralogic.util.lang.iterate.EnhancedIterable;
 import com.spectralogic.util.marshal.DateMarshaler;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class IomServiceImpl implements IomService
 {
     public IomServiceImpl( final BeansServiceManager serviceManager )
@@ -601,7 +603,7 @@ public class IomServiceImpl implements IomService
                                                 IomUtils.blobPersistedToStorageDomain(
                                                         storageDomainId,
                                                         PersistenceProfile.DATA_INTEGRITY_OK_NOT_OBSOLETE ) ) ) ) )
-                        .toSetsOf( MAX_BEANS_TO_QUERY );
+                        .toSetsOf( Tunables.iomServiceMaxBeansToQuery() );
     }
     
     
@@ -622,7 +624,7 @@ public class IomServiceImpl implements IomService
                                                 IomUtils.blobPersistedToStorageDomain(
                                                         storageDomainId,
                                                         PersistenceProfile.DATA_INTEGRITY_OK_NOT_OBSOLETE ) ) ) ) )
-                        .toSetsOf( MAX_BEANS_TO_QUERY );
+                        .toSetsOf( Tunables.iomServiceMaxBeansToQuery() );
     }
     
     
@@ -794,7 +796,6 @@ public class IomServiceImpl implements IomService
     }
     
 
-    private final static int MAX_BEANS_TO_QUERY = 100000;
     private final static Object m_storageDomainMemberLock = new Object();
     private final static Object m_dataPersistenceRuleLock = new Object();
     private final static String RESERVED_BUCKET_PREFIX = "Spectra%";

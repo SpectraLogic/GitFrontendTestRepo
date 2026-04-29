@@ -93,6 +93,8 @@ import com.spectralogic.util.thread.RecurringRunnableExecutor;
 import com.spectralogic.util.thread.wp.WorkPool;
 import com.spectralogic.util.thread.wp.WorkPoolFactory;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class DataPlanner extends BaseShutdownable implements Runnable
 {
     public static void main( final String[] args)
@@ -167,6 +169,7 @@ public final class DataPlanner extends BaseShutdownable implements Runnable
         serviceManager.getService( BucketService.class ).initializeLogicalSizeCache();
         
         final KeyValueService keyValueService = serviceManager.getService( KeyValueService.class );
+        Tunables.install( keyValueService );
 
         /*
          * We get the connection factory instances reflectively in this 
@@ -492,11 +495,11 @@ public final class DataPlanner extends BaseShutdownable implements Runnable
         	long maxSeqNum = m_serviceManager.getRetriever(BucketHistoryEvent.class).getMax(BucketHistoryEvent.SEQUENCE_NUMBER, Require.nothing());
         	long minSeqNum = m_serviceManager.getRetriever(BucketHistoryEvent.class).getMin(BucketHistoryEvent.SEQUENCE_NUMBER, Require.nothing());
         	long rowCount = maxSeqNum - minSeqNum;
-        	if ( rowCount > HISTORY_TABLE_MAX_SIZE )
+        	if ( rowCount > Tunables.dataPlannerHistoryTableMaxSize() )
         	{
         		// delete excess rows
-        		long deletePoint = maxSeqNum - HISTORY_TABLE_MAX_SIZE;
-        		long numToDelete = rowCount - HISTORY_TABLE_MAX_SIZE;
+        		long deletePoint = maxSeqNum - Tunables.dataPlannerHistoryTableMaxSize();
+        		long numToDelete = rowCount - Tunables.dataPlannerHistoryTableMaxSize();
         		LOG.info( "Pruning " + numToDelete + " excess rows from history table" );
         		m_serviceManager.getDeleter(BucketHistoryEvent.class).delete(
         				Require.beanPropertyLessThan( BucketHistoryEvent.SEQUENCE_NUMBER, deletePoint));
@@ -504,7 +507,6 @@ public final class DataPlanner extends BaseShutdownable implements Runnable
         	}
         }
         
-        private final static int HISTORY_TABLE_MAX_SIZE = 500000;  // yup, half a million
         private final BeansServiceManager m_serviceManager;
     } // end history table pruner inner class def
     

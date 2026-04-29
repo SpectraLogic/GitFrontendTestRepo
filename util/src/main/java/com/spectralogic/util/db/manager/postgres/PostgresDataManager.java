@@ -71,6 +71,8 @@ import com.spectralogic.util.thread.RecurringRunnableExecutor;
 import com.spectralogic.util.thread.workmon.MonitoredWork;
 import com.spectralogic.util.thread.workmon.MonitoredWork.StackTraceLogging;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class PostgresDataManager extends BaseShutdownable implements DataManager
 {
     /**
@@ -521,7 +523,7 @@ public final class PostgresDataManager extends BaseShutdownable implements DataM
     
         checkForDisabledWrites();
     
-        if ( MAX_BEANS_PER_CREATE_BEANS_COMMAND >= beans.size() )
+        if ( Tunables.postgresDataManagerMaxBeansPerCreateBeansCommand() >= beans.size() )
         {
             createBeansInternal( beans );
         }
@@ -531,7 +533,7 @@ public final class PostgresDataManager extends BaseShutdownable implements DataM
             for ( final T bean : beans )
             {
                 chunk.add( bean );
-                if ( MAX_BEANS_PER_CREATE_BEANS_COMMAND == chunk.size() )
+                if ( Tunables.postgresDataManagerMaxBeansPerCreateBeansCommand() == chunk.size() )
                 {
                     createBeansInternal( chunk );
                     chunk.clear();
@@ -1171,7 +1173,6 @@ public final class PostgresDataManager extends BaseShutdownable implements DataM
     private final RecurringRunnableExecutor m_healthCheckerExecutor = 
             new RecurringRunnableExecutor( m_healthChecker, 60000 );
     
-    private final static int MAX_BEANS_PER_CREATE_BEANS_COMMAND = 10000;
     private final static Logger LOG = Logger.getLogger( PostgresDataManager.class );
     private final AtomicBoolean disableWrites = new AtomicBoolean( false );
 } 

@@ -17,6 +17,8 @@ import com.spectralogic.s3.server.handler.reqhandler.frmwk.BaseModifyBeanRequest
 import com.spectralogic.s3.server.request.rest.RestDomainType;
 import com.spectralogic.util.exception.GenericFailure;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class ModifyCacheFilesystemRequestHandler
     extends BaseModifyBeanRequestHandler< CacheFilesystem >
 {
@@ -61,11 +63,11 @@ public final class ModifyCacheFilesystemRequestHandler
                     "Auto reclaim terminate threshold cannot be less than zero." );
         }
         if ( null != cf.getMaxCapacityInBytes()
-                && cf.getMaxCapacityInBytes().longValue() < MIN_CACHE_CAPACITY )
+                && cf.getMaxCapacityInBytes().longValue() < Tunables.modifyCacheFilesystemRequestHandlerMinCacheCapacity() )
         {
             throw new S3RestException(
                     GenericFailure.BAD_REQUEST,
-                    "Max capacity in bytes cannot be less than " + MIN_CACHE_CAPACITY + "." );
+                    "Max capacity in bytes cannot be less than " + Tunables.modifyCacheFilesystemRequestHandlerMinCacheCapacity() + "." );
         }
         if ( cf.getBurstThreshold() < 0 )
         {
@@ -88,5 +90,4 @@ public final class ModifyCacheFilesystemRequestHandler
     }
     
     
-    private final static long MIN_CACHE_CAPACITY = 1024 * 1024L * 1024;
 }

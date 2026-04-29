@@ -18,6 +18,9 @@ import org.apache.log4j.Logger;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import com.spectralogic.util.tunables.Tunables;
+
 public final class BlobDestinationUtils {
 
     public static boolean createLocalBlobDestinations(final Collection<JobEntry> entries, final Collection<DataPersistenceRule> rules, UUID bucketId, final BeansServiceManager transaction) {
@@ -147,7 +150,7 @@ public final class BlobDestinationUtils {
                 Require.all(
                         persistedOrIomStaged,
                         persistenceComplete
-                )).toSetsOf(MAX_BATCH_SIZE)) {
+                )).toSetsOf(Tunables.blobDestinationUtilsMaxBatchSize())) {
             for (final Set<DetailedJobEntry> batch : batches) {
                 final Map<UUID, DetailedJobEntry> writeEntriesWithNoWorkRemaining = BeanUtils.toMap(batch);
                 final Set<UUID> objectIds = BeanUtils.extractPropertyValues(writeEntriesWithNoWorkRemaining.values(), DetailedJobEntry.OBJECT_ID);
@@ -194,6 +197,5 @@ public final class BlobDestinationUtils {
             }
         }
     }
-    private final static int MAX_BATCH_SIZE = 10000;
     private final static Logger LOG = Logger.getLogger( BlobDestinationUtils.class );
 }

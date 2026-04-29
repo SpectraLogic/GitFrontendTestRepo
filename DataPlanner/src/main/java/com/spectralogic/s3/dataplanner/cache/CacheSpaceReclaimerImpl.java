@@ -19,6 +19,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.spectralogic.util.tunables.Tunables;
+
 final class CacheSpaceReclaimerImpl implements CacheSpaceReclaimer {
 
     public CacheSpaceReclaimerImpl(BlobCacheService blobCacheService, final AsyncBlobCacheDeleter asyncBlobCacheDeleter, final long filesystemOverheadPerBlob ) {
@@ -60,7 +62,7 @@ final class CacheSpaceReclaimerImpl implements CacheSpaceReclaimer {
         for (BlobCache bc : lruSortedblobEntries) {
             workingSet.add(bc);
             workingBytes += bc.getSizeInBytes();
-            if (MAX_RECLAIM_SEGMENT_BLOBS == workingSet.size() || MAX_RECLAIM_SEGMENT_BYTES <= workingBytes) {
+            if (Tunables.cacheSpaceReclaimerMaxReclaimSegmentBlobs() == workingSet.size() || Tunables.cacheSpaceReclaimerMaxReclaimSegmentBytes() <= workingBytes) {
                 release(workingSet, releasedSize, releasedCount, bcs);
                 workingSet.clear();
                 workingBytes = 0;
@@ -145,8 +147,6 @@ final class CacheSpaceReclaimerImpl implements CacheSpaceReclaimer {
         }
     }
 
-    private final static long MAX_RECLAIM_SEGMENT_BYTES = 100 * 1024L * 1024 * 1024;
-    private final static int MAX_RECLAIM_SEGMENT_BLOBS = 1000;
     private final Map<UUID, Set<UUID>> m_lockedBlobs = new HashMap<>();
     private final Set<UUID> m_retiredLockholders = new HashSet<>();
     private final BlobCacheService m_blobCacheService;

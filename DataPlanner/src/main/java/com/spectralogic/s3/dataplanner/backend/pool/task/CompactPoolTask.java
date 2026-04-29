@@ -51,6 +51,8 @@ import com.spectralogic.util.render.BytesRenderer;
 import com.spectralogic.util.thread.workmon.MonitoredWork;
 import com.spectralogic.util.thread.workmon.MonitoredWork.StackTraceLogging;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class CompactPoolTask extends BasePoolTask
 {
     public CompactPoolTask(final BlobStoreTaskPriority priority, final UUID poolId, final BeansServiceManager serviceManager,
@@ -366,7 +368,7 @@ public final class CompactPoolTask extends BasePoolTask
          */
         private void checkForDelay( final Function< Duration, String > returnCustomMessage )
         {
-            if ( MAX_CONTINUOUS_PRUNE_DURATION <= m_duration.getElapsedMinutes() )
+            if ( Tunables.compactPoolTaskMaxContinuousPruneDuration() <= m_duration.getElapsedMinutes() )
             {
                 m_work.setCustomMessage(
                         x -> "Delaying pool compaction on " + m_poolId + " to allow other pool tasks to run at " +
@@ -539,15 +541,13 @@ public final class CompactPoolTask extends BasePoolTask
             final UUID blobId = UUID.fromString( file.getFileName()
                                                      .toString() );
             m_blobsToVerify.put( blobId, file );
-            if ( MAX_BLOBS_TO_VERIFY <= m_blobsToVerify.size() )
+            if ( Tunables.compactPoolTaskMaxBlobsToVerify() <= m_blobsToVerify.size() )
             {
                 flushVerify();
             }
         }
     
     
-        static final int MAX_BLOBS_TO_VERIFY = 100000;
-        static final int MAX_CONTINUOUS_PRUNE_DURATION = 10;
         static final int PRUNE_WAIT_TIME = 2;
         private final AtomicInteger lastDirectoriesExamined = new AtomicInteger( 0 );
         private final Duration lastUpdate = new Duration();

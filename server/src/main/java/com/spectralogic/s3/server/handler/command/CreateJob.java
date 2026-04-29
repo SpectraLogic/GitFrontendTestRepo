@@ -46,13 +46,13 @@ import com.spectralogic.util.lang.CollectionFactory;
 import com.spectralogic.util.lang.Duration;
 import com.spectralogic.util.lang.Platform;
 import com.spectralogic.util.lang.Validations;
-import com.spectralogic.util.lang.iterate.EnhancedIterable;
 import com.spectralogic.util.log.LogUtil;
 import com.spectralogic.util.marshal.JsonMarshaler;
 import com.spectralogic.util.marshal.sax.SaxException;
 import com.spectralogic.util.marshal.sax.SaxParser;
 import com.spectralogic.util.net.rpc.frmwrk.RpcFuture;
 import com.spectralogic.util.net.rpc.frmwrk.RpcFuture.Timeout;
+import com.spectralogic.util.tunables.Tunables;
 import org.apache.commons.io.IOUtils;
 
 public final class CreateJob extends BaseCommand< ServletResponseStrategy >
@@ -102,7 +102,7 @@ public final class CreateJob extends BaseCommand< ServletResponseStrategy >
         }
     
         final AtomicInteger numObjectsToJob = new AtomicInteger( ( null == m_objectsToCreateJobFor ) ?
-            MAX_NUMBER_OF_OBJECTS_PER_JOB : m_objectsToCreateJobFor.getObjects().length );
+            Tunables.createJobMaxNumberOfObjectsPerJob() : m_objectsToCreateJobFor.getObjects().length );
         
         try
         {
@@ -194,16 +194,16 @@ public final class CreateJob extends BaseCommand< ServletResponseStrategy >
                                                                                                       .length +
                             " objects." );
                 }
-                if ( jobToCreate.getObjects().length > MAX_NUMBER_OF_OBJECTS_PER_JOB )
+                if ( jobToCreate.getObjects().length > Tunables.createJobMaxNumberOfObjectsPerJob() )
                 {
                     throw new S3RestException( 
                             GenericFailure.BAD_REQUEST, 
                             jobToCreate.getObjects().length
                             + " objects were specified for a single job, but "
-                            + MAX_NUMBER_OF_OBJECTS_PER_JOB + " is the maximum.  Please split your job up." );
+                            + Tunables.createJobMaxNumberOfObjectsPerJob() + " is the maximum.  Please split your job up." );
                 }
                 CURRENT_CONCURRENT_OBJECTS_TO_JOB.release(
-                        MAX_NUMBER_OF_OBJECTS_PER_JOB - jobToCreate.getObjects().length );
+                        Tunables.createJobMaxNumberOfObjectsPerJob() - jobToCreate.getObjects().length );
                 numObjectsToJob.set( jobToCreate.getObjects().length );
             }
             else
@@ -484,20 +484,14 @@ public final class CreateJob extends BaseCommand< ServletResponseStrategy >
     private final BlobbingPolicy m_blobbingPolicy;
     private final Job m_job;
     
-    private final static int MAX_NUMBER_OF_OBJECTS_PER_JOB;
     private final static Semaphore CURRENT_CONCURRENT_OBJECTS_TO_JOB;
     private final static long AWS_MULTI_PART_UPLOAD_MAXIMUM_TOTAL_SIZE_IN_BYTES = 5 * 1024L * 1024 * 1024 * 1024;
-    private final static int MAX_CONCURRENT_OBJECTS_TO_JOB;
     static
     {
-        final int kb = (int) ( Runtime.getRuntime().maxMemory() / 1024 );
-        MAX_NUMBER_OF_OBJECTS_PER_JOB =
-                Math.min( EnhancedIterable.MAX_NUMBER_OF_RESULTS_BEFORE_STREAMING_IS_REQUIRED, kb / 6 );
-        MAX_CONCURRENT_OBJECTS_TO_JOB = (int) ( kb / 2.5 );
-        CURRENT_CONCURRENT_OBJECTS_TO_JOB = new Semaphore( MAX_CONCURRENT_OBJECTS_TO_JOB );
-        
-        LOG.info( "The maximum number of objects per job is " + MAX_NUMBER_OF_OBJECTS_PER_JOB + "." );
-        LOG.info( "The maximum number of concurrent objects to job is " 
-                  + MAX_CONCURRENT_OBJECTS_TO_JOB + "." );
+        CURRENT_CONCURRENT_OBJECTS_TO_JOB = new Semaphore( Tunables.createJobMaxConcurrentObjectsToJob() );
+
+        LOG.info( "The maximum number of objects per job is " + Tunables.createJobMaxNumberOfObjectsPerJob() + "." );
+        LOG.info( "The maximum number of concurrent objects to job is "
+                  + Tunables.createJobMaxConcurrentObjectsToJob() + "." );
     }
 }

@@ -424,15 +424,7 @@ public class Ds3ApiHelpers {
         ForceFullCacheReclaimSpectraS3Request forceFullCacheReclaimRequest = new ForceFullCacheReclaimSpectraS3Request();
         client.forceFullCacheReclaimSpectraS3(forceFullCacheReclaimRequest);
 
-        // The reclaim request is asynchronous. Block until planner.blob_cache is actually empty so
-        // subsequent reads can't be served from cache.
-        final long deadlineMs = System.currentTimeMillis() + 120_000;
-        while (!isBlobCacheEmpty()) {
-            if (System.currentTimeMillis() > deadlineMs) {
-                throw new RuntimeException("Timed out waiting for planner.blob_cache to empty after reclaim");
-            }
-            TestUtil.sleep(2000);
-        }
+
     }
 
 

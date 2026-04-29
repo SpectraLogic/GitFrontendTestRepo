@@ -60,6 +60,7 @@ import com.spectralogic.util.render.BytesRenderer;
 import lombok.NonNull;
 
 import static com.spectralogic.s3.common.rpc.tape.domain.BlobIoFailureType.DOES_NOT_EXIST;
+import com.spectralogic.util.tunables.Tunables;
 
 public final class WriteChunkToTapeTask extends BaseIoTask implements DynamicTapeTask
 {
@@ -549,7 +550,7 @@ public final class WriteChunkToTapeTask extends BaseIoTask implements DynamicTap
             final TapeDriveResource tapeDriveResource,
             final TapeAvailability tapeAvailability )
     {
-        if (m_tapesMarkedBad >= MAX_TAPES_TASK_CAN_MARK_BAD) {
+        if (m_tapesMarkedBad >= Tunables.writeChunkToTapeTaskMaxTapesTaskCanMarkBad()) {
             invalidateTaskAndThrow(new RuntimeException("This task has marked too many tapes bad. Will invalidate it."));
         }
         String failureToSelectTape = null;
@@ -581,5 +582,4 @@ public final class WriteChunkToTapeTask extends BaseIoTask implements DynamicTap
     private UUID m_tapeId = m_defaultTapeId;
     private int m_tapesMarkedBad = 0;
 
-    private static final int MAX_TAPES_TASK_CAN_MARK_BAD = 3;
 }

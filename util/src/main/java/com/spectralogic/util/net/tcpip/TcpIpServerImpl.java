@@ -27,6 +27,7 @@ import com.spectralogic.util.net.tcpip.message.frmwrk.NetworkMessageHandler;
 import com.spectralogic.util.shutdown.BaseShutdownable;
 import com.spectralogic.util.shutdown.CriticalShutdownListener;
 import com.spectralogic.util.thread.wp.SystemWorkPool;
+import com.spectralogic.util.tunables.Tunables;
 
 public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutdownable implements TcpIpServer
 {    
@@ -61,7 +62,7 @@ public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutd
         Validations.verifyNotNull( "Network message handler", networkMessageHandler );
         Validations.verifyNotNull( "Network message decoder", networkMessageDecoder );
         
-        final int numThreads = Math.max( 2, Runtime.getRuntime().availableProcessors() );
+        final int numThreads = Tunables.tcpIpServerNumThreads();
         m_port = port;
         m_networkMessageHandler = networkMessageHandler;
         m_networkMessageDecoder = networkMessageDecoder;
@@ -112,31 +113,8 @@ public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutd
             } );
         }
     } // end inner class def
-
-    @Override
-    public void shutdown() {
-        if (m_channel != null) {
-            try {
-                m_channel.close().sync();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                m_log.warn("Interrupted while closing channel during shutdown", e);
-            }
-        }
-        try {
-            m_bossThreadGroup.shutdownGracefully().sync();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            m_log.warn("Interrupted while shutting down boss thread group", e);
-        }
-        try {
-            m_workerThreadGroup.shutdownGracefully().sync();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            m_log.warn("Interrupted while shutting down worker thread group", e);
-        }
-        m_shutdownCompletedLatch.countDown();
-    }
+    
+    
     synchronized public void run()
     {
         verifyNotShutdown();
@@ -169,13 +147,13 @@ public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutd
                     .childOption( ChannelOption.SO_KEEPALIVE, Boolean.TRUE )
                     .option( ChannelOption.SO_SNDBUF, Integer.valueOf( TCP_BUFFER_SIZE ) )
                     .option( ChannelOption.SO_RCVBUF, Integer.valueOf( TCP_BUFFER_SIZE ) );
-
+    
                 m_channel = bootstrap.bind( m_port ).sync().channel();
                 m_log.info( getLogMessage( "listening for" ) );
                 break;
             } 
             catch ( final Throwable t )
-            {
+            { 
                 retryInMillis = (int)(1.5 * retryInMillis);
                 if( m_maxRetrySleepDelay < retryInMillis )
                 {
@@ -197,11 +175,6 @@ public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutd
                     throw new RuntimeException( ex );
                 }
             } // catch ( Throwable )
-            finally {
-                if (m_channel != null && !m_channel.isActive()) {
-                    m_channel.close(); // Ensure cleanup if the channel is inactive
-                }
-            }
         } // while ( true )
     }
     
@@ -223,8 +196,8 @@ public final class TcpIpServerImpl< M extends NetworkMessage > extends BaseShutd
                     new IncomingMessageProcessor<>( m_networkMessageHandler, m_log ) );
         }
     } // end inner class def
-
-
+    
+    
     private volatile Channel m_channel;
     
     private final int m_port;

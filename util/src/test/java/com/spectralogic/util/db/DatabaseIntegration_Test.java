@@ -38,6 +38,7 @@ import com.spectralogic.util.db.mockdomain.SchoolType;
 import com.spectralogic.util.db.mockdomain.Teacher;
 import com.spectralogic.util.db.mockdomain.TeacherSchool;
 import com.spectralogic.util.db.mockdomain.TeacherType;
+import com.spectralogic.util.tunables.Tunables;
 import com.spectralogic.util.db.mockdomain.TestNotificationRegistration;
 import com.spectralogic.util.db.mockservice.CountyService;
 import com.spectralogic.util.db.mockservice.PrincipalService;
@@ -1562,12 +1563,8 @@ public final class DatabaseIntegration_Test
 
 
     private static int getBeanCountToExerciseCreationPaging( final DataManager dataManager )
-            throws NoSuchFieldException, IllegalAccessException
     {
-        final Field declaredField = PostgresDataManager.class
-                .getDeclaredField( "MAX_BEANS_PER_CREATE_BEANS_COMMAND" );
-        declaredField.setAccessible( true );
-        return 3 * declaredField.getInt( dataManager ) / 2;
+        return 3 * Tunables.postgresDataManagerMaxBeansPerCreateBeansCommand() / 2;
     }
     
     

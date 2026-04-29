@@ -52,6 +52,8 @@ import org.apache.log4j.Logger;
 import java.lang.reflect.Method;
 import java.util.*;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class DataPolicyManagementResourceImpl
         extends BaseRpcResource implements DataPolicyManagementResource
 {
@@ -911,7 +913,7 @@ public final class DataPolicyManagementResourceImpl
                     "Temporary persistence rules must specify a value for "
                             + DataPersistenceRule.MINIMUM_DAYS_TO_RETAIN + "." );
         }
-        if ( minDaysToRetain >= MIN_MIN_DAYS_TO_RETAIN_FOR_NEARLINE_POOL )
+        if ( minDaysToRetain >= Tunables.dataPolicyManagementResourceMinMinDaysToRetainForNearlinePool() )
         {
             return;
         }
@@ -934,7 +936,7 @@ public final class DataPolicyManagementResourceImpl
                 GenericFailure.CONFLICT,
                 "Since the data persistence rule targets a storage domain that contains " + PoolType.NEARLINE
                         + " pool storage, the " + DataPersistenceRule.MINIMUM_DAYS_TO_RETAIN + " must be at least "
-                        + MIN_MIN_DAYS_TO_RETAIN_FOR_NEARLINE_POOL + "." );
+                        + Tunables.dataPolicyManagementResourceMinMinDaysToRetainForNearlinePool() + "." );
     }
 
 
@@ -1233,19 +1235,19 @@ public final class DataPolicyManagementResourceImpl
 
     private void validatePublicCloudDataReplicationRule( final PublicCloudDataReplicationRule< ? > rule )
     {
-        if ( rule.getMaxBlobPartSizeInBytes() < PUBLIC_CLOUD_MIN_BLOB_PART_SIZE )
+        if ( rule.getMaxBlobPartSizeInBytes() < Tunables.dataPolicyManagementResourcePublicCloudMinBlobPartSize() )
         {
             throw new DataPlannerException(
                     GenericFailure.BAD_REQUEST,
                     "The " + PublicCloudDataReplicationRule.MAX_BLOB_PART_SIZE_IN_BYTES
-                            + " must be at least " + PUBLIC_CLOUD_MIN_BLOB_PART_SIZE + " bytes." );
+                            + " must be at least " + Tunables.dataPolicyManagementResourcePublicCloudMinBlobPartSize() + " bytes." );
         }
-        if ( rule.getMaxBlobPartSizeInBytes() > PUBLIC_CLOUD_MAX_BLOB_PART_SIZE )
+        if ( rule.getMaxBlobPartSizeInBytes() > Tunables.dataPolicyManagementResourcePublicCloudMaxBlobPartSize() )
         {
             throw new DataPlannerException(
                     GenericFailure.BAD_REQUEST,
                     "The " + PublicCloudDataReplicationRule.MAX_BLOB_PART_SIZE_IN_BYTES
-                            + " cannot exceed " + PUBLIC_CLOUD_MAX_BLOB_PART_SIZE + " bytes." );
+                            + " cannot exceed " + Tunables.dataPolicyManagementResourcePublicCloudMaxBlobPartSize() + " bytes." );
         }
     }
 
@@ -1506,7 +1508,7 @@ public final class DataPolicyManagementResourceImpl
                         Require.beanPropertyEquals( DataPersistenceRule.TYPE, DataPersistenceRuleType.TEMPORARY ),
                         Require.beanPropertyLessThan(
                                 DataPersistenceRule.MINIMUM_DAYS_TO_RETAIN,
-                                Integer.valueOf( MIN_MIN_DAYS_TO_RETAIN_FOR_NEARLINE_POOL ) ),
+                                Integer.valueOf( Tunables.dataPolicyManagementResourceMinMinDaysToRetainForNearlinePool() ) ),
                         Require.beanPropertyEquals(
                                 DataPersistenceRule.STORAGE_DOMAIN_ID,
                                 member.getStorageDomainId() ) ) ) )
@@ -1516,7 +1518,7 @@ public final class DataPolicyManagementResourceImpl
                             "Cannot add " + PoolType.NEARLINE + " pool to a storage domain that is being used "
                                     + "as a temporary persistence target with a "
                                     + DataPersistenceRule.MINIMUM_DAYS_TO_RETAIN + " less than "
-                                    + MIN_MIN_DAYS_TO_RETAIN_FOR_NEARLINE_POOL + " days." );
+                                    + Tunables.dataPolicyManagementResourceMinMinDaysToRetainForNearlinePool() + " days." );
                 }
             }
         }
@@ -1751,10 +1753,7 @@ public final class DataPolicyManagementResourceImpl
 
     private final BeansServiceManager m_serviceManager;
 
-    private final static long PUBLIC_CLOUD_MIN_BLOB_PART_SIZE = 100 * 1024L * 1024;
-    private final static long PUBLIC_CLOUD_MAX_BLOB_PART_SIZE = 1024 * 1024 * 1024L * 1024;
     private final static Set< String > DATA_POLICY_PROPERTIES_MODIFIABLE_AT_ANY_TIME;
-    private final static int MIN_MIN_DAYS_TO_RETAIN_FOR_NEARLINE_POOL = 1;
     private final static Logger LOG = Logger.getLogger( DataPolicyManagementResourceImpl.class );
     static
     {

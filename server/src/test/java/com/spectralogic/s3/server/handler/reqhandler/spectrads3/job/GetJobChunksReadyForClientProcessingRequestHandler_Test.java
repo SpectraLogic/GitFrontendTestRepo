@@ -424,6 +424,89 @@ public final class GetJobChunksReadyForClientProcessingRequestHandler_Test
 
 
     @Test
+    public void testRequestHandlerReturnsChunksForGetJobWhenEmulationEnabled()
+    {
+        final MockHttpRequestSupport support = new MockHttpRequestSupport();
+
+        support.setPlannerInterfaceIh( getPlannerInterfaceIh() );
+
+        final MockDaoDriver mockDaoDriver = new MockDaoDriver( support.getDatabaseSupport() );
+        final DataPathBackend backend = mockDaoDriver.attainOneAndOnly(DataPathBackend.class);
+        mockDaoDriver.updateBean(backend.setEmulateChunks(true), DataPathBackend.EMULATE_CHUNKS);
+        mockDaoDriver.createJob( null, null, JobRequestType.GET );
+        mockDaoDriver.createJob( null, null, JobRequestType.PUT );
+        final Job job = mockDaoDriver.createJob( null, null, JobRequestType.GET );
+        final Job job2 = mockDaoDriver.createJob( null, null, JobRequestType.GET );
+        final Job job3 = mockDaoDriver.createJob( null, null, JobRequestType.PUT );
+        mockDaoDriver.updateAllBeans(
+                BeanFactory.newBean( Job.class ).setChunkClientProcessingOrderGuarantee(
+                        JobChunkClientProcessingOrderGuarantee.NONE ),
+                JobObservable.CHUNK_CLIENT_PROCESSING_ORDER_GUARANTEE );
+
+
+        final S3Object o1 = mockDaoDriver.createObject( null, "o1", -1 );
+        final S3Object o2 = mockDaoDriver.createObject( null, "o2" );
+        final S3Object o3 = mockDaoDriver.createObject( null, "o3" );
+        final S3Object o4 = mockDaoDriver.createObject( null, "o4" );
+        mockDaoDriver.createObject( null, "o5" );
+        mockDaoDriver.grantOwnerPermissionsToEveryUser();
+
+        final List< Blob > blobs = mockDaoDriver.createBlobs( o1.getId(), 4, 1000 );
+        final Blob b2 = mockDaoDriver.getBlobFor( o2.getId() );
+        final Blob b3 = mockDaoDriver.getBlobFor( o3.getId() );
+        final Blob b4 = mockDaoDriver.getBlobFor( o4.getId() );
+
+        final JobEntry c1 = mockDaoDriver.createJobEntry(job.getId(),
+                blobs.get( 0 ) );
+        final Set<JobEntry> c2 = mockDaoDriver.createJobEntries(job.getId(),
+                CollectionFactory.toSet( blobs.get( 1 ), blobs.get( 2 ), blobs.get( 3 ) ) );
+        final JobEntry c3 = mockDaoDriver.createJobEntry(job.getId(),
+                b2 );
+        final JobEntry c4 = mockDaoDriver.createJobEntry(job2.getId(),
+                b3 );
+        final JobEntry c5 = mockDaoDriver.createJobEntry(job3.getId(),
+                b4 );
+
+        // GET path filters to entries in COMPLETED state.
+        support.getDatabaseSupport().getDataManager().updateBean(
+                CollectionFactory.toSet( JobEntry.BLOB_STORE_STATE ),
+                c1.setBlobStoreState( JobChunkBlobStoreState.COMPLETED ) );
+        for (final JobEntry e : c2) {
+            support.getDatabaseSupport().getDataManager().updateBean(
+                    CollectionFactory.toSet( JobEntry.BLOB_STORE_STATE ),
+                    e.setBlobStoreState( JobChunkBlobStoreState.IN_PROGRESS ) );
+        }
+        support.getDatabaseSupport().getDataManager().updateBean(
+                CollectionFactory.toSet( JobEntry.BLOB_STORE_STATE ),
+                c3.setBlobStoreState( JobChunkBlobStoreState.COMPLETED ) );
+
+        assignNodeIds( mockDaoDriver );
+        final MockHttpRequestDriver driver = new MockHttpRequestDriver(
+                support,
+                true,
+                new MockUserAuthorizationStrategy( MockDaoDriver.DEFAULT_USER_NAME ),
+                RequestType.GET,
+                "_rest_/job_chunk" ).addParameter( "job", job.getId().toString() );
+        driver.run();
+        driver.assertHttpResponseCodeEquals( 200 );
+        driver.assertResponseToClientContains( job.getId().toString() );
+        driver.assertResponseToClientDoesNotContain( job2.getId().toString() );
+        driver.assertResponseToClientDoesNotContain( job3.getId().toString() );
+
+        // GETs are always one-entry-per-chunk regardless of the emulateChunks flag,
+        // so the response should look the same as the emulation-off case: each
+        // completed entry surfaces as its own chunk with chunkId == entryId.
+        driver.assertResponseToClientContains( c1.getId().toString() );
+        driver.assertResponseToClientContains( c3.getId().toString() );
+        for (final JobEntry e : c2) {
+            driver.assertResponseToClientDoesNotContain(e.getId().toString());
+        }
+        driver.assertResponseToClientDoesNotContain( c4.getId().toString() );
+        driver.assertResponseToClientDoesNotContain( c5.getId().toString() );
+    }
+
+
+    @Test
     public void testRequestHandlerAllocatesChunksCorrectlyWhenChunksEntirelyInCacheButNotAllocatedBlkp2810()
     {
         final MockHttpRequestSupport support = new MockHttpRequestSupport();

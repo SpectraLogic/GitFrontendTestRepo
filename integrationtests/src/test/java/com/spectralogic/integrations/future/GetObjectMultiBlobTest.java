@@ -89,7 +89,7 @@ public class GetObjectMultiBlobTest {
     }
 
 
-   // @Test
+    @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testPutJobToTape() throws IOException, InterruptedException {
         LOG.info("Starting test : GetObjectMultiBlobTest" );
@@ -109,15 +109,15 @@ public class GetObjectMultiBlobTest {
 
             final Iterable<Ds3Object> objects = helper.listObjectsForDirectory(inputPath);
 
-
+            reclaimCache(client);
             final Ds3ClientHelpers.Job job = helper.startWriteJob(bucketName, objects);
-
+            UUID currentJobId = job.getJobId();
+            addJobName(client, "GetObjectMultiBlobTest", currentJobId);
             // Start the write job using an Object Putter that will read the files
             // from the local file system.
             job.transfer(new FileObjectPutter(inputPath));
 
-            UUID currentJobId = job.getJobId();
-            addJobName(client, "GetObjectMultiBlobTest", currentJobId);
+
 
             isJobCompleted(client, currentJobId);
 

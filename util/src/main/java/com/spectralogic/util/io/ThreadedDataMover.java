@@ -43,6 +43,8 @@ import com.spectralogic.util.thread.workmon.MonitoredWork.StackTraceLogging;
 import com.spectralogic.util.thread.wp.WorkPool;
 import com.spectralogic.util.thread.wp.WorkPoolFactory;
 
+import com.spectralogic.util.tunables.Tunables;
+
 /**
  * Moves data from an input stream to an output stream while computing a checksum hash.
  */
@@ -83,9 +85,9 @@ public final class ThreadedDataMover implements Runnable
         initWorkPools();
         
         Validations.verifyInRange( "Read buffer size", 
-                1024, MAX_BUFFER_CAPACITY / 6, readBufferSizeInBytes );
+                1024, Tunables.threadedDataMoverMaxBufferCapacity() / 6, readBufferSizeInBytes );
         Validations.verifyInRange( "Write buffer size", 
-                1024, MAX_BUFFER_CAPACITY / 6, writeBufferSizeInBytes );
+                1024, Tunables.threadedDataMoverMaxBufferCapacity() / 6, writeBufferSizeInBytes );
         Validations.verifyNotNull( "Input provider", inputProvider );
         if ( null != byteRangesFromInputStreamToForwardToOutputStream )
         {
@@ -105,7 +107,7 @@ public final class ThreadedDataMover implements Runnable
         
         m_readBuffer = new byte[ readBufferSizeInBytes ];
         m_writeBufferSize = writeBufferSizeInBytes;
-        m_numberOfWriteBuffers = Math.min( MAX_BUFFER_CAPACITY / m_writeBufferSize, MAX_NUMBER_OF_BUFFERS );
+        m_numberOfWriteBuffers = Math.min( Tunables.threadedDataMoverMaxBufferCapacity() / m_writeBufferSize, Tunables.threadedDataMoverMaxNumberOfBuffers() );
         m_bytesReadListener = bytesReadListener;
         m_dataTransferName = dataTransferName;
         m_byteRanges = byteRangesFromInputStreamToForwardToOutputStream;
@@ -826,8 +828,6 @@ public final class ThreadedDataMover implements Runnable
     private int m_readBufferLength;
     private final byte [] m_readBuffer;
     
-    private final static int MAX_BUFFER_CAPACITY = 6 * 1024 * 1024;
-    private final static int MAX_NUMBER_OF_BUFFERS = 128;
     private final static Buffer DONE_TOKEN = new Buffer();
     private final static BytesRenderer BYTES_RENDERER = new BytesRenderer();
     private final static Logger LOG = Logger.getLogger( ThreadedDataMover.class );
@@ -845,10 +845,10 @@ public final class ThreadedDataMover implements Runnable
             if ( null == s_writeDataWP || s_writeDataWP.isShutdown() )
             {
                 s_writeDataWP = WorkPoolFactory.createWorkPool(
-                    Runtime.getRuntime().availableProcessors() * 2,
+                    Tunables.threadedDataMoverDataWriterPoolSize(),
                     ThreadedDataMover.class.getSimpleName() + "-DataWriter" );
                 s_checksumWP = WorkPoolFactory.createWorkPool(
-                    Runtime.getRuntime().availableProcessors(),
+                    Tunables.threadedDataMoverChecksumComputerPoolSize(),
                     ThreadedDataMover.class.getSimpleName() + "-ChecksumComputer" );
             }
         }

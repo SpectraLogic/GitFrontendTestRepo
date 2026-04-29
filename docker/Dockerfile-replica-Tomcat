@@ -1,13 +1,4 @@
-# STAGE 1: Build Stage (Gradle)
-# Build the WAR inside Docker so the deployed artifact always matches current sources.
-FROM gradle:8.5-jdk21 AS build-stage
-
-WORKDIR /home/gradle/project
-COPY --chown=gradle:gradle . .
-
-RUN ./gradlew :server:war --no-daemon
-
-# STAGE 2: Final Runtime Image
+# Use official Tomcat base image
 FROM tomcat:9.0
 
 # Update package lists and install vim
@@ -18,8 +9,8 @@ RUN apt-get update && apt-get install -y ntpdate
 WORKDIR /usr/local/tomcat/webapps/
 
 COPY docker/tapesystem-replica.properties /etc/spectralogic/tapesystem.properties
-# Copy the freshly-built .war from the build stage into Tomcat's webapps directory
-COPY --from=build-stage /home/gradle/project/server/build/libs/server-0.0.4-SNAPSHOT.war /usr/local/tomcat/webapps/ROOT.war
+# Copy the .war file into Tomcat's webapps directory
+COPY server/build/libs/server-0.0.4-SNAPSHOT.war /usr/local/tomcat/webapps/ROOT.war
 COPY DataPlanner/src/test/resources/etc/spectra/pf-s3port.conf /etc/spectra/
 COPY DataPlanner/src/test/resources/etc/spectra/serial_number /etc/spectra/
 COPY server/src/main/resources/log4j.xml /usr/local/tomcat/conf/log4j.xml
@@ -28,7 +19,7 @@ COPY docker/entrypoint-time-sync.sh /usr/local/bin/entrypoint-time-sync.sh
 RUN chmod +x /usr/local/bin/entrypoint-time-sync.sh
 
 # To bypass authentication
-RUN touch /usr/local/tomcat/temp/_FLAG_disablerequesthandlerauthentication
+RUN touch /usr/local/tomcat/temp/_FLAG_disablerequesthandlerauthentication 
 
 RUN mkdir -p /var/log/tomcat &&chown -R 1000:1000 /var/log/tomcat
 # Expose Tomcat port
@@ -39,3 +30,4 @@ ENV CATALINA_OPTS="-Dlog4j.configuration=file:/usr/local/tomcat/conf/log4j.xml -
 # Start Tomcat
 #CMD ["catalina.sh", "run", "-Dlog4j.configuration=file:/usr/local/tomcat/conf/log4j.xml","-Dlog4j.debug=true"]
 ENTRYPOINT ["/usr/local/bin/entrypoint-time-sync.sh", "catalina.sh", "run"]
+

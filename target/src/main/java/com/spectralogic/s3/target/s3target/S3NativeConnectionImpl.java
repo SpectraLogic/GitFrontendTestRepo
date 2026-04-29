@@ -102,6 +102,8 @@ import com.spectralogic.util.thread.wp.WorkPoolFactory;
 import ds3fatjar.org.apache.commons.codec.binary.Hex;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 
+import com.spectralogic.util.tunables.Tunables;
+
 
 
 public class S3NativeConnectionImpl extends BaseShutdownable
@@ -978,7 +980,7 @@ public class S3NativeConnectionImpl extends BaseShutdownable
 			@Override
 			public void run()
 			{
-				int retries = MAX_TRANSFER_RETRIES;
+				int retries = Tunables.publicCloudMaxTransferRetries();
 				boolean complete = false;
                 final Map<String, String> userMetadata = new HashMap<>();
 				while (!complete)
@@ -1124,7 +1126,7 @@ public class S3NativeConnectionImpl extends BaseShutdownable
                                 complete = true;
                             } catch ( final CloudTransferFailedException e )
                             {
-                            	if ( retries < MAX_TRANSFER_RETRIES )
+                            	if ( retries < Tunables.publicCloudMaxTransferRetries() )
                             	{
                             		try
 									{
@@ -1519,6 +1521,5 @@ public class S3NativeConnectionImpl extends BaseShutdownable
     
     private final static Logger LOG = Logger.getLogger( S3NativeConnectionImpl.class );
 
-    private final static int MAX_TRANSFER_RETRIES = 10;
     private final static int MILLISECONDS_BETWEEN_RETRIES = 5000;
 }

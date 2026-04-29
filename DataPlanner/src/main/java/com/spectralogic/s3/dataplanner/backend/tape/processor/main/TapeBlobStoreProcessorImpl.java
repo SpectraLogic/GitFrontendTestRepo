@@ -1581,7 +1581,5 @@ public final class TapeBlobStoreProcessorImpl extends BaseShutdownable implement
     protected final TapeFailureManagement m_tapeFailureManagement;
 
     private final static String UNAVAILABLE_REASON = "tape or tapes unavailable";
-    private final static long MAX_TASK_SIZE_IN_BYTES = 30 * 1024 * 1024 * 1024L;
-    private final static int MAX_ENTRIES_PER_TASK = 10000;
     private final static Logger LOG = Logger.getLogger( TapeBlobStoreProcessor.class );
 }

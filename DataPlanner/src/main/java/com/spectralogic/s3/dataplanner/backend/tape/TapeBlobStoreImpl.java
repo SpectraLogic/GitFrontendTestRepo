@@ -995,6 +995,5 @@ public final class TapeBlobStoreImpl extends BaseShutdownable implements TapeBlo
     final TapeEnvironment m_tapeEnvironment;
     private final DiskManager m_diskManager;
 
-    private final static long DEFAULT_MAX_TASK_SIZE = 64L * 1024 * 1024 * 1024;
     private final static Logger LOG = Logger.getLogger( TapeBlobStoreImpl.class );
 }

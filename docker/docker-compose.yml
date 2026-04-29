@@ -57,6 +57,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
 
 
   dataplanner:
@@ -86,6 +87,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
 
 
 
@@ -112,6 +114,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - cacheFile:/tmp/cache
+      - pools_config:/etc/spectra/pools
 
   localstack:
     container_name: "localstack"
@@ -155,6 +158,7 @@ services:
 volumes:
   pgdata:
   cacheFile:
+  pools_config:
 
 networks:
   test-network:

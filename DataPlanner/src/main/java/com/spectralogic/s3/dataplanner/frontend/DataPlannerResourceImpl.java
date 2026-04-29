@@ -342,7 +342,10 @@ public final class DataPlannerResourceImpl extends BaseQuiescableJobResource imp
             }
 
             final boolean emulateChunks = m_serviceManager.getRetriever(DataPathBackend.class).attain(Require.nothing()).getEmulateChunks();
-            if (emulateChunks) {
+            // Chunk emulation only applies to PUTs; GETs are always reported one entry per
+            // chunk by the request handler, so stamping chunkIds on GET entries would just
+            // be dead state.
+            if (emulateChunks && JobRequestType.PUT == requestType) {
                 Long chunkSize = new JobRM(jobId, m_serviceManager).getBucket().getLastPreferredChunkSizeInBytes();
                 if (chunkSize == null) {
                     chunkSize = BucketService.DEFAULT_PREFFERRED_CHUNK_SIZE;
@@ -364,7 +367,7 @@ public final class DataPlannerResourceImpl extends BaseQuiescableJobResource imp
                                     Require.beanPropertyEquals(Identifiable.ID, detailedEntry.getId()),
                                     bean -> bean.setChunkId(chunkId),
                                     JobEntry.CHUNK_ID);
-                    curChunkSize += detailedEntry.getLength();;
+                    curChunkSize += detailedEntry.getLength();
                 }
             }
 

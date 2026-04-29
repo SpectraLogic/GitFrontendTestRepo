@@ -6,22 +6,26 @@
  */
 package com.spectralogic.util.thread.wp;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public final class DBParallelQueryPool
 {
     private DBParallelQueryPool()
     {
         // singleton
     }
-    
-    
+
+
     public static WorkPool getInstance()
     {
         return INSTANCE;
     }
-    
-    
-    private final static int NUM_THREADS = Math.max( 1, ( Runtime.getRuntime()
-                                                                 .availableProcessors() * 3 ) / 4 );
-    private final static WorkPool INSTANCE =
-            WorkPoolFactory.createBoundedWorkPool( NUM_THREADS << 4, NUM_THREADS, "DBParallelQueryPool" );
+
+
+    private final static WorkPool INSTANCE;
+    static
+    {
+        final int numThreads = Tunables.dbParallelQueryPoolSize();
+        INSTANCE = WorkPoolFactory.createBoundedWorkPool( numThreads << 4, numThreads, "DBParallelQueryPool" );
+    }
 }

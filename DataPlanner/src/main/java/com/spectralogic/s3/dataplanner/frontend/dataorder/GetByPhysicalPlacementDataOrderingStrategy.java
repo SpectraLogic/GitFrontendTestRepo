@@ -41,6 +41,8 @@ import org.apache.log4j.Logger;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.spectralogic.util.tunables.Tunables;
+
 /**
  * Orders {@link Blob}s so that they are retrieved in chunks that can be serviced entirely by a single
  * {@link Tape} or {@link Pool}, ordering the contents therein to avoid shoe-shining tapes by retrieving
@@ -263,7 +265,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     }
 
     private void addObjectsInCacheBlobs() {
-        Iterables.partition(m_blobsToRead, SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_blobsToRead, Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List<UUID> objectsIdsInCache = segment.stream().filter((b) -> m_cacheManager.isInCache(b)).collect(Collectors.toList());
             List<UUID> entriesForGrouping = new ArrayList<>();
             for (final UUID blobId : objectsIdsInCache) {
@@ -275,7 +277,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     }
 
     private void addObjectsInCacheJobEntries() {
-        Iterables.partition(m_entriesByBlobId.keySet(), SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_entriesByBlobId.keySet(), Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List<UUID> objectsIdsInCache = segment.stream().filter((b) -> m_cacheManager.isInCache(b)).collect(Collectors.toList());
             List<JobEntry> entriesForGrouping = new ArrayList<>();
             for (final UUID blobId : objectsIdsInCache) {
@@ -299,7 +301,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     }
 
     private void addZeroLengthObjectsBlobs() {
-        Iterables.partition(m_blobsToRead, SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_blobsToRead, Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List<Blob> zeroLengthObjects = m_serviceManager.getRetriever(Blob.class).retrieveAll(
                     Require.all(
                             Require.beanPropertyEqualsOneOf(Identifiable.ID, segment),
@@ -312,7 +314,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
         });
     }
     private void addZeroLengthObjectsEntries() {
-        Iterables.partition(m_entriesByBlobId.keySet(), SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_entriesByBlobId.keySet(), Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List<Blob> zeroLengthObjects = m_serviceManager.getRetriever(Blob.class).retrieveAll(
                     Require.all(
                             Require.beanPropertyEqualsOneOf(Identifiable.ID, segment),
@@ -339,7 +341,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     }
 
     private void addObjectsOnPoolEntries(final PoolType type) {
-        Iterables.partition(m_entriesByBlobId.keySet(), SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_entriesByBlobId.keySet(), Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List< BlobPool > objectsOnPool = new ArrayList<>(findAvailableBlobPools(segment, type));
             List<JobEntry> entriesForGrouping = new ArrayList<>();
             UUID lastPoolId = null;
@@ -365,7 +367,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     }
 
     private void addObjectsOnPoolBlobs(final PoolType type) {
-        Iterables.partition(m_blobsToRead, SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_blobsToRead, Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List< BlobPool > objectsOnPool = new ArrayList<>(findAvailableBlobPools(segment, type));
             List<JobEntry> entriesForGrouping = new ArrayList<>();
             UUID lastPoolId = null;
@@ -390,7 +392,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
 
     private void addObjectsOnTapeBlobs( final boolean searchOnEjectableMedia )
     {
-        Iterables.partition(m_blobsToRead, SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_blobsToRead, Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List< BlobTape > objectsOnTape = new ArrayList<>(findAvailableBlobTapes(segment, searchOnEjectableMedia));
             Collections.sort(
                     objectsOnTape,
@@ -417,7 +419,7 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
 
     private void addObjectsOnTapeEntries( final boolean searchOnEjectableMedia )
     {
-        Iterables.partition(m_entriesByBlobId.keySet(), SINGLE_TRANSACTION_MAX).forEach( segment -> {
+        Iterables.partition(m_entriesByBlobId.keySet(), Tunables.getByPhysicalPlacementDataOrderingStrategySingleTransactionMax()).forEach( segment -> {
             final List< BlobTape > objectsOnTape = new ArrayList<>(findAvailableBlobTapes(segment, searchOnEjectableMedia));
             Collections.sort(
                     objectsOnTape,
@@ -915,6 +917,5 @@ public final class GetByPhysicalPlacementDataOrderingStrategy
     private  Set< UUID > m_blobsToRead = new HashSet<>() ;
     private boolean m_readByBlobds = false;
     // For larger sets than this, beanPropertyEqualsOneOf can crash postgres
-    private static final int SINGLE_TRANSACTION_MAX = 10000;
 
 }

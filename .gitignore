@@ -1,4 +1,4 @@
-# Ignore Gradle build directories in any subproject
+git rm -r --cached "**/bin/*"# Ignore Gradle build directories in any subproject
 **/build/
 
 # Ignore Maven target directories in any subproject
@@ -11,6 +11,6 @@
 .project
 .settings/
 .gradle/
-
+Dataplanner/null/**
 # macOS specific
 .DS_Store

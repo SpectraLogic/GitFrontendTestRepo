@@ -38,6 +38,8 @@ import com.spectralogic.util.lang.Duration;
 import com.spectralogic.util.lang.Validations;
 import com.spectralogic.util.render.BytesRenderer;
 
+import com.spectralogic.util.tunables.Tunables;
+
 abstract class BaseReadChunkFromPublicCloudTask
     < T extends DatabasePersistable & PublicCloudReplicationTarget< T >,
       CF extends PublicCloudConnectionFactory< ?, T > >
@@ -331,7 +333,7 @@ abstract class BaseReadChunkFromPublicCloudTask
                                 m_targetType, getTargetId(), blob.getId())  )
                         {
                             acquiredAnyStagingLock = true;
-                            if (MAX_STAGE_REQUEST_FREQUENCY_IN_HOURS * 60
+                            if (Tunables.baseReadChunkFromPublicCloudTaskMaxStageRequestFrequencyInHours() * 60
                                     < m_durationSinceStageRequested.getElapsedMinutes()) {
                                 connection.beginStagingToRead(
                                         cloudBucket, object, blob, target.getStagedDataExpirationInDays() );
@@ -434,6 +436,5 @@ abstract class BaseReadChunkFromPublicCloudTask
     private final OfflineDataStagingWindowManager m_offlineDataStagingWindowManager;
     private final Duration m_durationSinceStageRequested = new Duration( 0 );
     
-    private final static int MAX_STAGE_REQUEST_FREQUENCY_IN_HOURS = 6;
     private final static Set< UUID > CLOUD_BLOB_READS_IN_PROGRESS = new HashSet<>();
 }

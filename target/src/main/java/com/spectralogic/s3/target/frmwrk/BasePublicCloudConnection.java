@@ -62,6 +62,8 @@ import com.spectralogic.util.shutdown.BaseShutdownable;
 import com.spectralogic.util.thread.wp.WorkPool;
 import com.spectralogic.util.thread.wp.WorkPoolFactory;
 
+import com.spectralogic.util.tunables.Tunables;
+
 abstract class BasePublicCloudConnection extends BaseShutdownable implements PublicCloudConnection
 {
     protected BasePublicCloudConnection()
@@ -403,7 +405,7 @@ abstract class BasePublicCloudConnection extends BaseShutdownable implements Pub
                                 }
                                 catch ( final IOException e )
 								{
-                                	if ( retries < MAX_TRANSFER_RETRIES )
+                                	if ( retries < Tunables.publicCloudMaxTransferRetries() )
                                 	{
                                 		try
 										{
@@ -693,7 +695,7 @@ abstract class BasePublicCloudConnection extends BaseShutdownable implements Pub
                                 complete = true;
                             } catch ( final CloudTransferFailedException e )
                             {
-                            	if ( retries < MAX_TRANSFER_RETRIES )
+                            	if ( retries < Tunables.publicCloudMaxTransferRetries() )
                             	{
                             		try
 									{
@@ -1185,6 +1187,5 @@ abstract class BasePublicCloudConnection extends BaseShutdownable implements Pub
     protected final static Logger LOG = Logger.getLogger( BasePublicCloudConnection.class );
 
 
-    private final static int MAX_TRANSFER_RETRIES = 10;
     private final static int MILLISECONDS_BETWEEN_RETRIES = 5000;
 }

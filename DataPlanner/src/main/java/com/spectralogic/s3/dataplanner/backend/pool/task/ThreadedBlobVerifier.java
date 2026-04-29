@@ -33,6 +33,7 @@ import com.spectralogic.util.lang.Validations;
 import com.spectralogic.util.shutdown.BaseShutdownable;
 import com.spectralogic.util.thread.wp.WorkPool;
 import com.spectralogic.util.thread.wp.WorkPoolFactory;
+import com.spectralogic.util.tunables.Tunables;
 
 final class ThreadedBlobVerifier extends BaseShutdownable
 {
@@ -203,8 +204,7 @@ final class ThreadedBlobVerifier extends BaseShutdownable
     private final Pool m_pool;
     
     private final static ArrayBlockingQueue< BlobToVerify > PENDING = new ArrayBlockingQueue<>( 128 );
-    private final static int NUM_THREADS = Math.max( 1, Runtime.getRuntime().availableProcessors() / 2 );
-    
+
     private static WorkPool s_workPool = null; // Assignment to this variable
                                                // only happens in a sync block,
                                                // therefore it need not be
@@ -224,10 +224,11 @@ final class ThreadedBlobVerifier extends BaseShutdownable
         {
             if ( null == s_workPool || s_workPool.isShutdown() )
             {
-                s_workPool = WorkPoolFactory.createWorkPool( NUM_THREADS,
+                final int numThreads = Tunables.threadedBlobVerifierNumThreads();
+                s_workPool = WorkPoolFactory.createWorkPool( numThreads,
                                    ThreadedBlobVerifier.class.getSimpleName() );
-                
-                for ( int i = 0; i < NUM_THREADS; ++i )
+
+                for ( int i = 0; i < numThreads; ++i )
                 {
                     s_workPool.submit( new BlobVerifier() );
                 }

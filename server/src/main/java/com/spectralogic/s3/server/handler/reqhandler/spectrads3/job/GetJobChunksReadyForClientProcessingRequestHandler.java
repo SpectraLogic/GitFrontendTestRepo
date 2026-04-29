@@ -131,7 +131,9 @@ public final class GetJobChunksReadyForClientProcessingRequestHandler extends Ba
                 job.getId(),
                 params);
         final JobWithChunksApiBean response;
-        if (backend.getEmulateChunks()) {
+        // Chunk emulation only applies to PUTs; GETs are always reported one
+        // entry per chunk so we don't delay telling the client a file is ready.
+        if (backend.getEmulateChunks() && JobRequestType.PUT == job.getRequestType()) {
             for ( final UUID chunkId : emulatedChunks.keySet() ) {
                 repsonseBuilder.addChunk(chunkId, emulatedChunks.get(chunkId));
             }

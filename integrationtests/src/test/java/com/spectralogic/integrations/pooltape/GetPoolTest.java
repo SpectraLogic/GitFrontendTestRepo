@@ -162,14 +162,7 @@ public class GetPoolTest {
 
             addJobName(client, "ReadTest", readJobId);
             readJob.transfer(new FileObjectGetter(outputPathFiles));
-            int count = 30;
 
-            while (count > 0 ) {
-                GetJobSpectraS3Response jobDetails = client.getJobSpectraS3(new GetJobSpectraS3Request(readJobId));
-                count--;
-                TestUtil.sleep(100);
-            }
-            GetJobSpectraS3Response jobDetails = client.getJobSpectraS3(new GetJobSpectraS3Request(readJobId));
             isJobCompleted(client, readJobId);
 
 

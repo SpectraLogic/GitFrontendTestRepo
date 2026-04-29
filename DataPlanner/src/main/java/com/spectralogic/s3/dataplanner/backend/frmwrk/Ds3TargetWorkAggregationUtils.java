@@ -15,6 +15,8 @@ import org.apache.log4j.Logger;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.spectralogic.util.tunables.Tunables;
+
 public class Ds3TargetWorkAggregationUtils {
     public static List<IODirective> discoverDs3TargetWorkAggregated(final BeansServiceManager serviceManager) {
         final Map<TargetWorkAggregationKey, Set<Ds3JobEntryWork>> workByKey = new LinkedHashMap<>();
@@ -48,7 +50,7 @@ public class Ds3TargetWorkAggregationUtils {
         long taskSize = 0;
 
         for (final Ds3JobEntryWork workEntry : work) {
-            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > MAX_BYTES_PER_TASK || entries.size() >= MAX_ENTRIES_PER_TASK)) {
+            if (!entries.isEmpty() && (taskSize + workEntry.getLength() > Tunables.workAggregationMaxBytesPerTask() || entries.size() >= Tunables.workAggregationMaxEntriesPerTask())) {
                 break;
             }
             entries.add(workEntry);
@@ -132,7 +134,5 @@ public class Ds3TargetWorkAggregationUtils {
             UUID targetId
     ) {}
 
-    private final static int MAX_ENTRIES_PER_TASK = 100000;
-    private final static long MAX_BYTES_PER_TASK = 100L * 1024L * 1024L * 1024L; //100GB
     private final static Logger LOG = Logger.getLogger(Ds3TargetWorkAggregationUtils.class);
 }

@@ -27,6 +27,7 @@ import com.spectralogic.util.net.tcpip.message.frmwrk.NetworkMessageEncoder;
 import com.spectralogic.util.net.tcpip.message.frmwrk.NetworkMessageHandler;
 import com.spectralogic.util.shutdown.BaseShutdownable;
 import com.spectralogic.util.shutdown.CriticalShutdownListener;
+import com.spectralogic.util.tunables.Tunables;
 
 public final class TcpIpClientImpl< M extends NetworkMessage > 
     extends BaseShutdownable implements TcpIpClient< M >
@@ -45,7 +46,7 @@ public final class TcpIpClientImpl< M extends NetworkMessage >
         Validations.verifyNotNull( "Network message decoder", networkMessageDecoder );
         Validations.verifyNotNull( "Network message encoder", networkMessageEncoder );
         
-        final int numThreads = Math.min( 8, Math.max( 2, Runtime.getRuntime().availableProcessors() ) );
+        final int numThreads = Tunables.tcpIpClientNumThreads();
         m_host = host;
         m_port = port;
         m_networkMessageHandler = networkMessageHandler;
